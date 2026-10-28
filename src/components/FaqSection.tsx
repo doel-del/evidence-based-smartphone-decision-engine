@@ -1,63 +1,55 @@
 import React from 'react';
+import { HelpCircle } from 'lucide-react';
+import { ReportOutput } from '../server/types.js';
 
 interface FaqSectionProps {
+  report: ReportOutput;
   onOpenEvidence: (id: string) => void;
 }
 
-export const FaqSection: React.FC<FaqSectionProps> = ({ onOpenEvidence }) => {
-  const faqs = [
-    {
-      q: 'Apakah kamera belakangnya sudah dilengkapi OIS?',
-      a: 'Ya, kamera utama 50MP sudah dibekali hardware OIS (Optical Image Stabilization) sehingga video yang dihasilkan stabil pada perekaman 1080p 30fps dan foto malam hari minim guncangan.',
-      evidenceId: '45hfkSE5DvA-E051'
-    },
-    {
-      q: 'Apakah HP ini aman jika terkena hujan deras atau tumpahan air?',
-      a: 'Sangat aman. Galaxy A26 5G mengantongi sertifikasi IP67 yang menjamin bodi perangkat kedap debu dan tahan terendam air tawar hingga kedalaman 1 meter selama 30 menit.',
-      evidenceId: '45hfkSE5DvA-E001'
-    },
-    {
-      q: 'Berapa lama jaminan pembaruan sistem operasi dan keamanan?',
-      a: 'Samsung memberikan komitmen jaminan 6 generasi OS update (hingga Android 21) dan 6 tahun patch keamanan, salah satu yang terpanjang di kelas smartphone Rp 3 jutaan.',
-      evidenceId: '45hfkSE5DvA-E006'
-    },
-    {
-      q: 'Apakah charger adaptor disertakan di dalam kotak kemasan?',
-      a: 'Tidak. Paket penjualan hanya menyertakan kabel data USB Type-C to Type-C, SIM ejector, dan buku panduan. Kepala charger 25W harus dibeli terpisah seharga sekitar Rp 200 ribuan.',
-      evidenceId: 'lzeD_sBrCB0-E002'
-    },
-    {
-      q: 'Apakah Galaxy A26 5G sanggup memainkan Genshin Impact?',
-      a: 'Bisa dijalankan di rentang 30–40 fps pada pengaturan Highest 60fps tanpa kipas. Namun bodi akan menghangat hingga 43–45°C sehingga disarankan memakai mode Balanced atau pendingin tambahan.',
-      evidenceId: '45hfkSE5DvA-E132'
-    }
-  ];
+export const FaqSection: React.FC<FaqSectionProps> = ({ report, onOpenEvidence }) => {
+  if (!report.faq || report.faq.length === 0) return null;
 
   return (
     <section className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 shadow-xs">
-      <h2 className="text-2xl font-black text-gray-900 mb-6 tracking-tight">
-        Frequently Asked Questions (FAQ)
-      </h2>
+      <div className="flex items-center gap-2.5 mb-6">
+        <HelpCircle className="w-6 h-6 text-blue-600 shrink-0" />
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+            Frequently Asked Questions (FAQ)
+          </h2>
+          <p className="text-xs text-gray-500 font-semibold mt-0.5">
+            Pertanyaan umum yang dijawab langsung berdasarkan rekaman bukti terverifikasi
+          </p>
+        </div>
+      </div>
+
       <div className="space-y-3.5">
-        {faqs.map((faq, idx) => (
+        {report.faq.map((item, idx) => (
           <details 
             key={idx} 
             className="group rounded-2xl border border-gray-200 p-4 open:border-blue-300 open:bg-slate-50/50 transition-colors"
           >
             <summary className="cursor-pointer font-bold text-sm text-gray-900 flex items-center justify-between outline-hidden">
-              <span>{faq.q}</span>
+              <span>{item.question}</span>
               <span className="text-blue-600 group-open:rotate-180 transition-transform font-bold text-base">
                 ↓
               </span>
             </summary>
             <div className="mt-3 text-xs leading-relaxed text-gray-600 font-medium border-t border-gray-100 pt-3">
-              <p>{faq.a}</p>
-              <button
-                onClick={() => onOpenEvidence(faq.evidenceId)}
-                className="mt-2 text-[11px] font-mono font-bold text-blue-600 hover:underline inline-block"
-              >
-                [Verifikasi Bukti: {faq.evidenceId.split('-').pop()}]
-              </button>
+              <p>{item.answer}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-gray-400 font-semibold">Bukti:</span>
+                {item.evidenceIds.map(eid => (
+                  <button
+                    key={eid}
+                    onClick={() => onOpenEvidence(eid)}
+                    className="text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded hover:bg-blue-100 transition-colors"
+                  >
+                    {eid}
+                  </button>
+                ))}
+              </div>
             </div>
           </details>
         ))}

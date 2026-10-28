@@ -1,5 +1,6 @@
 /**
- * Types for Evidence-Based Smartphone Decision Engine
+ * Types for Generic Evidence-Based Smartphone Decision Engine
+ * Product-agnostic, schema-validated, deterministic architecture.
  */
 
 export type EvidenceType = 'FACT' | 'MEASUREMENT' | 'OBSERVATION' | 'OPINION' | 'RECOMMENDATION' | 'COMPARISON' | 'CLAIM';
@@ -13,22 +14,25 @@ export interface ValidationRuleResult {
 }
 
 export interface EvidenceValidation {
-  accepted: boolean;
+  accepted?: boolean;
+  status?: string;
   results?: ValidationRuleResult[];
-  finalStatus: 'VALID' | 'VALID_WITH_NORMALIZATION' | 'INVALID' | 'SUSPECT' | string;
+  finalStatus?: 'VALID' | 'VALID_WITH_NORMALIZATION' | 'INVALID' | 'SUSPECT' | string;
 }
 
 export interface RawEvidenceRecord {
   evidence_id: string;
+  product_name: string;
+  captured_at: string; // ISO date YYYY-MM-DD or full timestamp
   topic: string;
-  subtopic: string | null;
+  subtopic?: string | null;
   type: EvidenceType | string;
   claim: string;
-  value: number | string | null;
-  unit: string | null;
-  attribute: string | null;
-  attribute_value: string | null;
-  context: string | null;
+  value?: number | string | null;
+  unit?: string | null;
+  attribute?: string | null;
+  attribute_value?: string | null;
+  context?: string | null;
   comparison_target?: string | null;
   reviewer_assessment?: 'positive' | 'negative' | 'neutral' | null;
   certainty: string;
@@ -42,22 +46,24 @@ export interface RawEvidenceRecord {
     char_end?: number | null;
   };
   validation: EvidenceValidation;
-  timestamp_start: string | null;
-  timestamp_end: string | null;
+  timestamp_start?: string | null;
+  timestamp_end?: string | null;
   source: string;
   review_id: string;
-  video_url: string;
-  video_title: string;
+  video_url?: string;
+  video_title?: string;
   merged_subtopics?: string[];
   merged_from_evidence_ids?: string[];
 }
 
 export interface NormalizedEvidence extends RawEvidenceRecord {
-  datasetFile: string;
+  canonicalAttribute: string;
+  normalizedValue: number | string | null;
+  normalizedUnit: string | null;
   isEligibleForScoring: boolean;
   exclusionReason?: string;
-  sourceReviewer: string;
   youtubeTimestampUrl?: string;
+  datasetFile?: string;
 }
 
 export type CriterionId =
@@ -72,18 +78,57 @@ export type CriterionId =
 export interface CriterionDefinition {
   id: CriterionId;
   name: string;
-  nameId: string; // Indonesian title
-  weight: number; // 0.0 - 1.0 (Sum = 1.0)
+  nameId: string;
+  weight: number;
+  baseScore: number;
+  minEvidence: number;
   description: string;
 }
 
-export interface CriterionRubric {
-  criterionId: CriterionId;
-  version: string;
-  isFullySpecified: boolean;
-  unratedReason?: string;
-  baseScoreFormula: string;
-  rulesDescription: string[];
+export type PriceTierId = 'entry' | 'mid' | 'upper_mid' | 'flagship';
+
+export interface RuleBand {
+  priceTiers?: PriceTierId[];
+  gte?: number;
+  gt?: number;
+  lte?: number;
+  lt?: number;
+  eq?: number | string;
+  contains?: string[];
+  sentiment?: 'positive' | 'negative' | 'neutral';
+  delta: number;
+  label: string;
+  template: string;
+}
+
+export interface EngineRule {
+  id: string;
+  criterion: CriterionId;
+  description: string;
+  match: {
+    attribute?: string;
+    topic?: string;
+    type?: string;
+    subtopic?: string;
+  };
+  metric?: {
+    field: 'normalized_value' | 'text';
+    unit?: string;
+  };
+  sentimentImpact?: boolean;
+  bands: RuleBand[];
+  polarity: 'positive' | 'negative';
+  maxApply?: number;
+}
+
+export interface RuleHit {
+  ruleId: string;
+  criterion: CriterionId;
+  delta: number;
+  label: string;
+  text: string;
+  polarity: 'positive' | 'negative';
+  evidenceIds: string[];
 }
 
 export interface CriterionScoreResult {
@@ -91,14 +136,15 @@ export interface CriterionScoreResult {
   criterionName: string;
   criterionNameId: string;
   weight: number;
-  score: number | null; // 0.0 - 5.0, or null if unrated
+  baseScore: number;
+  score: number | null;
   isRated: boolean;
   unratedReason?: string;
   rubricVersion: string;
   evidenceIdsUsed: string[];
-  primaryFindings: string[];
-  positiveDrivers: { text: string; evidenceIds: string[]; delta?: number }[];
-  negativeDeductions: { text: string; evidenceIds: string[]; delta?: number }[];
+  primaryFindings: { text: string; evidenceIds: string[] }[];
+  positiveDrivers: { text: string; evidenceIds: string[]; delta: number }[];
+  negativeDeductions: { text: string; evidenceIds: string[]; delta: number }[];
 }
 
 export type DecisionStatus = 'PUBLISHED' | 'INSUFFICIENT_EVIDENCE' | 'UNRESOLVED_CRITICAL_CONFLICT';
@@ -111,79 +157,122 @@ export type DecisionLabel =
 
 export type ConfidenceLabel = 'HIGH' | 'MEDIUM' | 'LOW' | 'INSUFFICIENT';
 
-export interface DecisionReasonItem {
-  id: string;
-  title: string;
-  description: string;
-  evidenceIds: string[];
-  impact: 'positive' | 'negative' | 'neutral';
-}
-
-export interface StrengthItem {
-  title: string;
-  description: string;
-  evidenceIds: string[];
-  impactCategory: string;
-}
-
-export interface TradeoffItem {
-  title: string;
-  description: string;
-  scoreDeduction?: number;
-  evidenceIds: string[];
-  mitigation?: string;
-}
-
 export interface ConflictItem {
   id: string;
-  attribute: string;
+  canonicalAttribute: string;
   topic: string;
-  claims: { source: string; claim: string; value: any; evidenceId: string }[];
   isCritical: boolean;
   resolved: boolean;
-  resolutionNote?: string;
+  resolutionNote: string;
+  claims: {
+    source: string;
+    claim: string;
+    rawValue: any;
+    normalizedValue: any;
+    evidenceId: string;
+  }[];
 }
 
-export interface DecisionResult {
-  productId: string;
+export interface SpecRow {
+  label: string;
+  canonicalAttribute: string;
+  attribute?: string;
+  value: string;
+  sources: string[];
+  evidenceIds: string[];
+  hasConflict: boolean;
+  conflictingClaims?: { source: string; value: string; evidenceId: string }[];
+  conflict?: ConflictItem;
+}
+
+export interface SpecTopicGroup {
+  topicId: string;
+  topicLabel: string;
+  rows: SpecRow[];
+}
+
+export interface ClaimVsRealityItem {
+  metric: string;
+  canonicalAttribute: string;
+  factoryClaim: string;
+  realTested: string;
+  delta: string;
+  status: string;
+  statusBadge: string;
+  verdict?: 'EXCEEDS' | 'MATCHES' | 'BELOW' | 'CAVEAT' | string;
+  verdictLabel?: string;
+  evidenceIds: string[];
+}
+
+export interface ReviewerQuoteItem {
+  source: string;
+  videoTitle?: string;
+  quote: string;
+  timestamp: string;
+  youtubeUrl?: string;
+  youtubeTimestampUrl?: string;
+  evidenceIds: string[];
+}
+
+export interface AlternativeItem {
   productName: string;
-  overallScore: number | null; // Rounded to 1 decimal place (0.0 - 5.0)
-  overallScoreExact: number | null; // Full precision internal score
+  description: string;
+  comparisonNote?: string;
+  categoryBadge: string;
+  reasonCategory?: string;
+  evidenceIds: string[];
+}
+
+export interface FaqItem {
+  question: string;
+  answer: string;
+  evidenceIds: string[];
+}
+
+export type StrengthItem = { title: string; description: string; evidenceIds: string[]; impactCategory: string };
+export type TradeoffItem = { title: string; description: string; scoreDeduction?: number; evidenceIds: string[]; mitigation?: string };
+
+export interface ReportOutput {
+  schemaVersion: string;
+  reportId: string;
+  productName: string;
+  dateGenerated: string;
+  capturedAtRange: {
+    earliest: string;
+    latest: string;
+    isOlderThan90Days: boolean;
+  };
+  priceSummary: {
+    min: number | null;
+    max: number | null;
+    currency: string;
+    evidenceIds: string[];
+  };
+  overallScore: number | null;
+  overallScoreExact: number | null;
   decisionLabel: DecisionLabel;
   decisionStatus: DecisionStatus;
   confidenceLabel: ConfidenceLabel;
-  coveragePercent: number; // 0 - 100
+  coveragePercent: number;
+  independentSourceCount: number;
   criteriaScores: Record<CriterionId, CriterionScoreResult>;
-  strengths: StrengthItem[];
-  tradeoffs: TradeoffItem[];
-  decisionReasons: DecisionReasonItem[];
-  evidenceUsed: string[]; // List of evidence IDs actually used in rated scores & reasons
-  evidenceExcluded: { evidenceId: string; reason: string; source: string }[];
-  unresolvedConflicts: ConflictItem[];
-  rulesetVersion: string;
-  evidenceDatasetVersion: string;
-  generatedAt: string;
+  strengths: { title: string; description: string; evidenceIds: string[]; impactCategory: string }[];
+  tradeoffs: { title: string; description: string; scoreDeduction?: number; evidenceIds: string[]; mitigation?: string }[];
+  decisionReasons: { id: string; title: string; description: string; evidenceIds: string[]; impact: 'positive' | 'negative' }[];
   quickDecision: {
     recommendedFor: { text: string; evidenceIds: string[] }[];
     notRecommendedFor: { text: string; evidenceIds: string[] }[];
   };
+  specTable: SpecTopicGroup[];
+  claimVsReality: ClaimVsRealityItem[];
+  quotes: ReviewerQuoteItem[];
+  alternatives: AlternativeItem[];
+  faq: FaqItem[];
+  evidencePool: NormalizedEvidence[];
+  diagnostics: DatasetReport;
 }
 
 export interface DatasetReport {
-  filesProcessed: {
-    filename: string;
-    source: string;
-    reviewId: string;
-    totalRecords: number;
-    acceptedRecords: number;
-    excludedRecords: number;
-    status: 'LOADED_SUCCESSFULLY' | 'MISSING' | 'ERROR';
-    error?: string;
-  }[];
-  missingRequiredFiles: {
-    filename: string;
-    reason: string;
-  }[];
   totalRecordsLoaded: number;
   totalNormalizedRecords: number;
   totalAcceptedRecords: number;
@@ -193,12 +282,11 @@ export interface DatasetReport {
   exclusionReasonsBreakdown: Record<string, number>;
   conflictsDetected: ConflictItem[];
   rulesetVersion: string;
-  evidenceDatasetVersion: string;
   independentReviewSources: {
     source: string;
     reviewId: string;
-    videoTitle: string;
-    videoUrl: string;
+    videoTitle?: string;
+    videoUrl?: string;
     recordCount: number;
   }[];
 }

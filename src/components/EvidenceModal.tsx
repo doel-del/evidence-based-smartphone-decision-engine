@@ -4,13 +4,12 @@ import { ExternalLink, X, ShieldCheck, Video, Clock, FileText, AlertCircle } fro
 
 interface EvidenceModalProps {
   evidenceId: string | null;
+  evidencePool?: NormalizedEvidence[];
   onClose: () => void;
 }
 
-export const EvidenceModal: React.FC<EvidenceModalProps> = ({ evidenceId, onClose }) => {
+export const EvidenceModal: React.FC<EvidenceModalProps> = ({ evidenceId, evidencePool, onClose }) => {
   const [evidence, setEvidence] = useState<NormalizedEvidence | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!evidenceId) {
@@ -18,23 +17,17 @@ export const EvidenceModal: React.FC<EvidenceModalProps> = ({ evidenceId, onClos
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    if (evidencePool) {
+      const found = evidencePool.find(e => e.evidence_id === evidenceId);
+      if (found) {
+        setEvidence(found);
+        return;
+      }
+    }
 
-    fetch(`/api/evidence/${encodeURIComponent(evidenceId)}`)
-      .then(res => {
-        if (!res.ok) throw new Error(`Evidence ${evidenceId} not found`);
-        return res.json();
-      })
-      .then(data => {
-        setEvidence(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  }, [evidenceId]);
+    // Fallback search or clear
+    setEvidence(null);
+  }, [evidenceId, evidencePool]);
 
   if (!evidenceId) return null;
 
@@ -58,8 +51,8 @@ export const EvidenceModal: React.FC<EvidenceModalProps> = ({ evidenceId, onClos
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-            aria-label="Tutup modal"
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors"
+            aria-label="Tutup modal bukti"
           >
             <X className="w-5 h-5" />
           </button>
@@ -67,128 +60,109 @@ export const EvidenceModal: React.FC<EvidenceModalProps> = ({ evidenceId, onClos
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {loading && (
-            <div className="py-12 text-center text-slate-500 flex flex-col items-center justify-center gap-2">
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-sm">Memuat data bukti sumber...</p>
+          {!evidence ? (
+            <div className="py-12 text-center text-slate-500 text-xs">
+              Memuat data bukti [{evidenceId}]...
             </div>
-          )}
-
-          {error && (
-            <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-200 text-sm flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+          ) : (
+            <>
+              {/* Claim Card */}
               <div>
-                <p className="font-bold">Gagal Mengambil Bukti</p>
-                <p className="text-xs">{error}</p>
-              </div>
-            </div>
-          )}
-
-          {evidence && !loading && (
-            <div className="space-y-5 text-sm">
-              {/* Claim */}
-              <div>
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">
-                  Klaim / Temuan
-                </h4>
-                <p className="text-lg font-bold text-slate-900 leading-snug">
-                  "{evidence.claim}"
-                </p>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Klaim Pengujian
+                </span>
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/80">
+                  <p className="text-sm font-bold text-slate-900 leading-snug">
+                    "{evidence.claim}"
+                  </p>
+                </div>
               </div>
 
-              {/* Source Excerpt */}
-              {evidence.source_excerpt && (
-                <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5" />
-                    Kutipan Transkrip Sumber
-                  </h4>
-                  <p className="text-slate-700 italic font-medium leading-relaxed">
+              {/* Verbatim Excerpt */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Kutipan Transkrip Verbatim (Transkrip Nyata)
+                </span>
+                <div className="p-4 bg-blue-50/50 rounded-xl border border-blue-200/70 text-slate-800">
+                  <p className="text-xs italic leading-relaxed">
                     "{evidence.source_excerpt}"
                   </p>
                 </div>
-              )}
+              </div>
 
-              {/* Grid Metadata */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Topik</span>
-                  <span className="font-semibold text-slate-800 capitalize">{evidence.topic} {evidence.subtopic ? `(${evidence.subtopic})` : ''}</span>
+              {/* Data Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] font-semibold text-slate-400 block mb-0.5">Topik / Atribut</span>
+                  <span className="font-bold text-slate-800">{evidence.topic}</span>
+                  {evidence.canonicalAttribute && (
+                    <span className="block text-[10px] font-mono text-slate-500">
+                      canon: {evidence.canonicalAttribute}
+                    </span>
+                  )}
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Tipe Bukti</span>
-                  <span className="font-semibold text-blue-700">{evidence.type}</span>
-                </div>
-
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Status Validasi</span>
-                  <span className="font-semibold text-emerald-700 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    {evidence.validation?.finalStatus || 'VALID'}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] font-semibold text-slate-400 block mb-0.5">Nilai Ternormalisasi</span>
+                  <span className="font-bold text-slate-800">
+                    {evidence.normalizedValue !== null ? String(evidence.normalizedValue) : '-'}
+                    {evidence.normalizedUnit ? ` ${evidence.normalizedUnit}` : ''}
                   </span>
                 </div>
 
-                {evidence.attribute && (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[11px] font-bold text-slate-400 block uppercase">Atribut</span>
-                    <span className="font-semibold text-slate-800">{evidence.attribute}: {evidence.attribute_value || evidence.value || '-'}</span>
-                  </div>
-                )}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60">
+                  <span className="text-[10px] font-semibold text-slate-400 block mb-0.5">Tipe & Kepastian</span>
+                  <span className="font-bold text-slate-800">{evidence.type}</span>
+                  <span className="block text-[10px] text-slate-500">{evidence.certainty}</span>
+                </div>
+              </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[11px] font-bold text-slate-400 block uppercase">Kepastian</span>
-                  <span className="font-semibold text-slate-800 capitalize">{evidence.certainty || 'Explicit'}</span>
+              {/* Provenance Video Info */}
+              <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3">
+                <div className="flex items-center justify-between text-xs border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-1.5 font-bold text-blue-400">
+                    <Video className="w-4 h-4" />
+                    <span>Sumber Video Reviewer</span>
+                  </div>
+                  <span className="font-semibold text-slate-300">{evidence.source}</span>
                 </div>
 
-                {evidence.timestamp_start && (
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[11px] font-bold text-slate-400 block uppercase">Timestamp</span>
-                    <span className="font-semibold text-slate-800 flex items-center gap-1 font-mono text-xs">
-                      <Clock className="w-3 h-3 text-slate-400" />
-                      {evidence.timestamp_start} {evidence.timestamp_end ? `- ${evidence.timestamp_end}` : ''}
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-slate-200 line-clamp-1">
+                    {evidence.video_title || 'Video Pengujian'}
+                  </p>
+                  <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                    <span className="flex items-center gap-1 font-mono">
+                      <Clock className="w-3.5 h-3.5" />
+                      Timestamp: {evidence.timestamp_start || '-'} s/d {evidence.timestamp_end || '-'}
                     </span>
+                    {evidence.youtubeTimestampUrl && (
+                      <a
+                        href={evidence.youtubeTimestampUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-bold hover:underline"
+                      >
+                        <span>Putar di YouTube</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
                   </div>
-                )}
-              </div>
-
-              {/* Source & Video Link */}
-              <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <span className="text-xs text-slate-500 font-medium">Kanal / Reviewer:</span>
-                  <p className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Video className="w-4 h-4 text-red-600" />
-                    {evidence.source}
-                  </p>
-                  <p className="text-xs text-slate-500 truncate max-w-sm mt-0.5">
-                    {evidence.video_title}
-                  </p>
                 </div>
-
-                {evidence.video_url && (
-                  <a
-                    href={evidence.youtubeTimestampUrl || evidence.video_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0"
-                  >
-                    <span>Tonton di YouTube</span>
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
               </div>
-            </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-100 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 rounded-lg transition-colors"
-          >
-            Tutup
-          </button>
+              {/* Validation Status */}
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100">
+                <div className="flex items-center gap-1.5 text-emerald-700 font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Status Kelayakan: Memenuhi Syarat Skoring</span>
+                </div>
+                <span className="text-slate-400 text-[11px] font-mono">
+                  Review ID: {evidence.review_id}
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

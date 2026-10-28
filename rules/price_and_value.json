@@ -1,0 +1,86 @@
+[
+  {
+    "id": "price_promo_deal",
+    "criterion": "price_and_value",
+    "description": "Evaluasi harga beli aktual terhadap kelas harga dan spesifikasi memori",
+    "match": { "attribute": "price" },
+    "metric": { "field": "normalized_value", "unit": "IDR" },
+    "bands": [
+      {
+        "priceTiers": ["mid"],
+        "lte": 3800000,
+        "delta": 0.8,
+        "label": "Harga promo sangat menarik untuk kelas menengah",
+        "template": "Harga pembelian terpantau terjangkau di angka Rp {formatted_value} untuk kelasnya"
+      },
+      {
+        "priceTiers": ["mid"],
+        "gt": 3800000,
+        "lte": 4000000,
+        "delta": 0.4,
+        "label": "Harga sesuai standar kelas menengah",
+        "template": "Harga pasar berada di rentang kompetitif Rp {formatted_value}"
+      },
+      {
+        "priceTiers": ["entry"],
+        "lte": 1500000,
+        "delta": 0.7,
+        "label": "Harga sangat murah di kelas entry level",
+        "template": "Harga sangat ekonomis di angka Rp {formatted_value}"
+      },
+      {
+        "priceTiers": ["upper_mid"],
+        "lte": 5000000,
+        "delta": 0.5,
+        "label": "Nilai tinggi untuk kelas upper mid-range",
+        "template": "Harga tergolong menarik di angka Rp {formatted_value} untuk kelas upper-mid"
+      },
+      {
+        "priceTiers": ["flagship"],
+        "lte": 8500000,
+        "delta": 0.4,
+        "label": "Harga flagship terjangkau",
+        "template": "Harga terpantau kompetitif di kelas flagship di angka Rp {formatted_value}"
+      },
+      {
+        "priceTiers": ["flagship"],
+        "gt": 8500000,
+        "delta": 0.1,
+        "label": "Harga standar kelas flagship",
+        "template": "Harga berada di standar kelas flagship di angka Rp {formatted_value}"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "missing_charger_box",
+    "criterion": "price_and_value",
+    "description": "Pengurangan skor jika charger adaptor dijual terpisah",
+    "match": { "attribute": "in_box_charger" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["terpisah", "tidak ada", "bukan kepala", "PR"],
+        "delta": -0.3,
+        "label": "Kepala charger dijual terpisah",
+        "template": "Kepala charger tidak disertakan di dalam kotak penjualan (dijual terpisah)"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "reviewer_value_verdict",
+    "criterion": "price_and_value",
+    "description": "Opini reviewer tentang value for money",
+    "match": { "topic": "retail-package", "type": "OPINION" },
+    "sentimentImpact": true,
+    "bands": [
+      { "sentiment": "positive", "delta": 0.2, "label": "Reviewer menilai value for money menarik", "template": "Reviewer menilai penawaran harga ponsel sangat memuaskan di kelasnya" },
+      { "sentiment": "negative", "delta": -0.2, "label": "Reviewer menilai harga kurang kompetitif", "template": "Reviewer menilai harga kurang sebanding dengan isi paket penjualan" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  }
+]

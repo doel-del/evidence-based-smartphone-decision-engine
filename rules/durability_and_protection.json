@@ -1,0 +1,54 @@
+[
+  {
+    "id": "ip_rating_certification",
+    "criterion": "durability_and_protection",
+    "description": "Sertifikasi ketahanan air dan debu IP rating",
+    "match": { "attribute": "ip_rating" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["ip68"],
+        "delta": 1.0,
+        "label": "Sertifikasi IP68 tahan air maksimal",
+        "template": "Memiliki sertifikasi resmi IP68 yang tahan terhadap debu dan rendaman air intensif"
+      },
+      {
+        "contains": ["ip67"],
+        "delta": 0.9,
+        "label": "Sertifikasi IP67 tahan air dan debu",
+        "template": "Telah tersertifikasi IP67 yang menjamin bodi kedap debu dan tahan terendam air hingga kedalaman 1 meter selama 30 menit"
+      },
+      {
+        "contains": ["ip54", "ip53"],
+        "delta": 0.4,
+        "label": "Sertifikasi ketahanan cipratan ringan",
+        "template": "Memiliki sertifikasi dasar tahan debu dan cipratan air ringan"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "glass_victus_protection",
+    "criterion": "durability_and_protection",
+    "description": "Proteksi kaca Gorilla Glass Victus / Victus+",
+    "match": { "attribute": "protection_type" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["victus+", "victus plus", "victus"],
+        "delta": 0.8,
+        "label": "Proteksi kaca Gorilla Glass Victus kelas tinggi",
+        "template": "Menggunakan lapisan proteksi kaca premium {attribute_value} yang tahan gores dan benturan"
+      },
+      {
+        "contains": ["gorilla glass 5", "gorilla glass 3"],
+        "delta": 0.4,
+        "label": "Proteksi kaca standar Gorilla Glass",
+        "template": "Dilindungi lapisan kaca {attribute_value} untuk ketahanan goresan harian"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  }
+]

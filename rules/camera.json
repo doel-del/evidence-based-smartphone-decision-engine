@@ -1,0 +1,89 @@
+[
+  {
+    "id": "main_camera_ois_rating",
+    "criterion": "camera",
+    "description": "Kamera utama resolusi tinggi dengan OIS",
+    "match": { "attribute": "main_camera_resolution" },
+    "metric": { "field": "normalized_value", "unit": "MP" },
+    "bands": [
+      { "gte": 48, "delta": 0.4, "label": "Sensor kamera utama 50MP tajam", "template": "Kamera utama beresolusi tinggi {value}MP mampu menangkap detail gambar dengan tajam" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "video_4k_recording_support",
+    "criterion": "camera",
+    "description": "Dukungan perekaman video 4K",
+    "match": { "attribute": "max_video_resolution" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["4k", "4k 30", "4k 30 fps"],
+        "delta": 0.3,
+        "label": "Mendukung perekaman video resolusi 4K",
+        "template": "Mendukung perekaman video beresolusi tinggi hingga 4K 30fps"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "ultrawide_presence_bonus",
+    "criterion": "camera",
+    "description": "Ketersediaan lensa ultrawide terpisah",
+    "match": { "attribute": "ultrawide_camera_resolution" },
+    "metric": { "field": "normalized_value", "unit": "MP" },
+    "bands": [
+      { "gte": 8, "delta": 0.3, "label": "Dilengkapi kamera ultrawide", "template": "Dilengkapi kamera ultrawide {value}MP untuk memotret sudut pandang luas" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "eis_stabilization_limitation",
+    "criterion": "camera",
+    "description": "Ketiadaan EIS pada resolusi video tinggi",
+    "match": { "topic": "camera" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["eis untuk resolusi di atas 1080p", "belum bisa aktif di atas 1080p", "cuma mengandalkan ois", "agak goyang"],
+        "delta": -0.2,
+        "label": "EIS tidak aktif pada video resolusi tinggi",
+        "template": "Fitur stabilisasi elektronik (EIS) tidak aktif pada perekaman di atas 1080p 30fps sehingga video 4K/60fps masih agak berguncang"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "selfie_60fps_absence",
+    "criterion": "camera",
+    "description": "Ketiadaan opsi 60 fps pada kamera depan",
+    "match": { "topic": "camera" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["tidak ada opsi perekaman 60 fps di kamera selfie", "tidak ada opsi 60 fps di kamera selfie", "nggak ada 60 fps"],
+        "delta": -0.2,
+        "label": "Kamera depan tanpa opsi 60 fps",
+        "template": "Kamera selfie tidak menyediakan opsi perekaman 60 fps dan cenderung soft pada kondisi pencahayaan rendah"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "macro_sensor_penalty",
+    "criterion": "camera",
+    "description": "Lensa makro beresolusi rendah dinilai minim kegunaan",
+    "match": { "attribute": "macro_camera_resolution" },
+    "metric": { "field": "normalized_value", "unit": "MP" },
+    "bands": [
+      { "lte": 2, "delta": -0.1, "label": "Sensor makro pelengkap 2MP minim fungsi", "template": "Sensor makro {value}MP cenderung menjadi pelengkap dengan resolusi dan fungsi terbatas" }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  }
+]

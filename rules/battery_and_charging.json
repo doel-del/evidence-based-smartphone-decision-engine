@@ -1,0 +1,60 @@
+[
+  {
+    "id": "battery_capacity_evaluation",
+    "criterion": "battery_and_charging",
+    "description": "Evaluasi kapasitas mAh baterai",
+    "match": { "attribute": "battery_capacity" },
+    "metric": { "field": "normalized_value", "unit": "mAh" },
+    "bands": [
+      { "gte": 5000, "delta": 0.5, "label": "Kapasitas baterai besar (>= 5000 mAh)", "template": "Kapasitas baterai besar {value} mAh memberikan daya tahan prima seharian" },
+      { "lt": 4500, "delta": -0.4, "label": "Kapasitas baterai di bawah standar (< 4500 mAh)", "template": "Kapasitas baterai {value} mAh tergolong kecil untuk penggunaan harian intens" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "charging_time_full_evaluation",
+    "criterion": "battery_and_charging",
+    "description": "Evaluasi durasi pengisian daya penuh relatif terhadap tier harga",
+    "match": { "attribute": "charging_time_full" },
+    "metric": { "field": "normalized_value", "unit": "menit" },
+    "bands": [
+      { "priceTiers": ["entry", "mid"], "lte": 45, "delta": 0.5, "label": "Pengisian daya sangat cepat (< 45 menit)", "template": "Kecepatan pengisian baterai sangat impresif, penuh dalam {value} menit" },
+      { "priceTiers": ["entry", "mid"], "gt": 45, "lte": 65, "delta": 0.2, "label": "Pengisian daya moderat (45 - 65 menit)", "template": "Waktu pengisian penuh cukup baik dalam {value} menit" },
+      { "priceTiers": ["entry", "mid"], "gt": 75, "delta": -0.4, "label": "Pengisian daya lambat (> 75 menit)", "template": "Waktu pengisian baterai hingga 100% relatif lama ({value} menit)" },
+      { "priceTiers": ["upper_mid", "flagship"], "gt": 50, "delta": -0.6, "label": "Pengisian daya lambat untuk kelas atas (> 50 menit)", "template": "Waktu pengisian {value} menit tergolong lambat untuk kelas harganya" }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "charging_wattage_rating",
+    "criterion": "battery_and_charging",
+    "description": "Daya pengisian watt",
+    "match": { "attribute": "charging_speed" },
+    "metric": { "field": "normalized_value", "unit": "W" },
+    "bands": [
+      { "gte": 65, "delta": 0.4, "label": "Daya charging sangat tinggi (>= 65W)", "template": "Mendukung pengisian cepat berdaya tinggi {value}W" },
+      { "priceTiers": ["mid", "upper_mid"], "lte": 25, "delta": -0.2, "label": "Daya charging terbatas (<= 25W)", "template": "Dukungan daya pengisian terbatas di {value}W jika dibanding kompetitor" }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "bypass_charging_feature",
+    "criterion": "battery_and_charging",
+    "description": "Dukungan bypass charging saat gaming",
+    "match": { "attribute": "bypass_charging" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["bypass", "pause usb power delivery", "power delivery"],
+        "delta": 0.2,
+        "label": "Tersedia fitur Bypass Charging",
+        "template": "Dilengkapi fitur Bypass Charging (Pause USB Power Delivery) untuk menjaga suhu saat bermain game sambil diisi daya"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  }
+]

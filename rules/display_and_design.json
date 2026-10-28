@@ -1,0 +1,96 @@
+[
+  {
+    "id": "display_panel_quality",
+    "criterion": "display_and_design",
+    "description": "Kualitas jenis panel layar",
+    "match": { "attribute": "display_panel" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["amoled", "oled", "super amoled"],
+        "delta": 0.5,
+        "label": "Panel layar AMOLED / Super AMOLED kontras tinggi",
+        "template": "Layar menggunakan panel {attribute_value} dengan reproduksi warna kontras dan hitam pekat"
+      },
+      {
+        "contains": ["ips", "lcd"],
+        "delta": 0.1,
+        "label": "Panel layar IPS LCD standar",
+        "template": "Layar menggunakan panel {attribute_value} standar"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "refresh_rate_smoothness",
+    "criterion": "display_and_design",
+    "description": "Tingkat kemulusan refresh rate layar",
+    "match": { "attribute": "refresh_rate" },
+    "metric": { "field": "normalized_value", "unit": "Hz" },
+    "bands": [
+      { "gte": 120, "delta": 0.4, "label": "Refresh rate 120Hz mulus", "template": "Refresh rate tinggi {value}Hz menghadirkan animasi scrolling dan navigasi yang sangat mulus" },
+      { "gte": 90, "lt": 120, "delta": 0.2, "label": "Refresh rate 90Hz", "template": "Refresh rate {value}Hz cukup mulus untuk harian" },
+      { "lte": 60, "delta": -0.3, "label": "Refresh rate standar 60Hz", "template": "Refresh rate masih terbatas pada 60Hz" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "notch_design_penalty",
+    "criterion": "display_and_design",
+    "description": "Evaluasi estetika desain notch kamera depan",
+    "match": { "attribute": "notch_type" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["waterdrop", "poni", "infinity-u", "teardrop"],
+        "delta": -0.5,
+        "label": "Desain notch poni waterdrop terasa kurang modern",
+        "template": "Desain layar depan masih mengadopsi poni ({attribute_value}) yang terlihat sedikit lawas dibanding model punch-hole"
+      },
+      {
+        "contains": ["punch-hole", "punch hole", "infinity-o", "lubang"],
+        "delta": 0.2,
+        "label": "Desain punch-hole modern",
+        "template": "Menggunakan kamera depan bergaya punch-hole modern"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "non_adaptive_refresh_penalty",
+    "criterion": "display_and_design",
+    "description": "Refresh rate non-adaptif yang harus diatur manual",
+    "match": { "topic": "display" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["belum adaptif", "tidak adaptif", "pilih manual"],
+        "delta": -0.3,
+        "label": "Refresh rate belum adaptif",
+        "template": "Refresh rate belum bersifat adaptif otomatis sehingga harus dipilih manual antara 60Hz atau 120Hz"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "bezel_chin_assessment",
+    "criterion": "display_and_design",
+    "description": "Kritik bezel dagu bawah layar",
+    "match": { "subtopic": "bezel", "type": "OPINION" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["agak tebal", "masih tebal", "tebal"],
+        "delta": -0.2,
+        "label": "Bezel dagu bawah terasa agak tebal",
+        "template": "Bezel di area dagu bawah layar masih terasa relatif tebal"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  }
+]

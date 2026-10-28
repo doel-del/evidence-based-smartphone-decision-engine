@@ -1,0 +1,71 @@
+[
+  {
+    "id": "antutu_benchmark_tier",
+    "criterion": "performance_and_gaming",
+    "description": "Evaluasi skor AnTuTu 10 terhadap tier harga",
+    "match": { "attribute": "antutu_score" },
+    "metric": { "field": "normalized_value" },
+    "bands": [
+      { "priceTiers": ["entry"], "gte": 300000, "delta": 0.5, "label": "Performa AnTuTu di atas rata-rata entry level", "template": "Skor benchmark AnTuTu mencapai {formatted_value} di kelas entry level" },
+      { "priceTiers": ["mid"], "gte": 600000, "delta": 0.6, "label": "Performa AnTuTu kencang di kelas menengah", "template": "Skor benchmark AnTuTu mencapai kisaran {formatted_value} yang solid untuk kelas menengah" },
+      { "priceTiers": ["mid"], "lt": 400000, "delta": -0.4, "label": "Performa AnTuTu di bawah standar kelas menengah", "template": "Skor AnTuTu ({formatted_value}) tergolong lambat untuk kelas harganya" },
+      { "priceTiers": ["upper_mid"], "gte": 900000, "delta": 0.6, "label": "Performa AnTuTu tinggi di kelas atas", "template": "Skor AnTuTu {formatted_value} memadai untuk kelas upper mid-range" },
+      { "priceTiers": ["flagship"], "gte": 1500000, "delta": 0.7, "label": "Performa flagship sejati", "template": "Skor benchmark kelas flagship mencapai {formatted_value}" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "gaming_high_fps",
+    "criterion": "performance_and_gaming",
+    "description": "Dukungan game kompetitif dengan frame rate tinggi",
+    "match": { "topic": "gaming", "type": "OBSERVATION" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["90 fps", "90fps", "120 fps", "120fps"],
+        "delta": 0.4,
+        "label": "Mendukung frame rate tinggi hingga 90-120 fps",
+        "template": "Pengujian game kompetitif mampu berjalan mulus hingga 90/120 fps"
+      },
+      {
+        "contains": ["60 fps lancar", "lancar terus 60 fps", "60 fps"],
+        "delta": 0.2,
+        "label": "Mendukung 60 fps stabil",
+        "template": "Dapat menjalankan game pada 60 fps dengan stabil"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "heavy_gaming_thermal_throttle",
+    "criterion": "performance_and_gaming",
+    "description": "Suhu meningkat atau throttling saat game berat",
+    "match": { "topic": "gaming" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["45 celsius", "45°c", "pendinginan ekstra", "suhu mencapai 45", "suhu 45"],
+        "delta": -0.3,
+        "label": "Suhu menghangat pada game berat",
+        "template": "Suhu bodi meningkat hingga 45°C pada game berat sehingga disarankan pendinginan tambahan"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  },
+  {
+    "id": "ram_capacity_tier",
+    "criterion": "performance_and_gaming",
+    "description": "Kapasitas RAM fisik",
+    "match": { "attribute": "ram_capacity" },
+    "metric": { "field": "normalized_value", "unit": "GB" },
+    "bands": [
+      { "priceTiers": ["entry", "mid"], "gte": 8, "delta": 0.3, "label": "Kapasitas RAM besar (>= 8GB)", "template": "Dibekali RAM fisik besar {value}GB untuk multitasking lancar" },
+      { "priceTiers": ["mid", "upper_mid"], "lte": 4, "delta": -0.4, "label": "RAM relatif kecil (<= 4GB)", "template": "Kapasitas RAM {value}GB tergolong minim untuk kelas menengah" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  }
+]

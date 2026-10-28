@@ -1,0 +1,80 @@
+{
+  "criteria": {
+    "price_and_value": {
+      "id": "price_and_value",
+      "name": "Price and value for money",
+      "nameId": "Harga & Value for Money",
+      "weight": 0.20,
+      "baseScore": 3.5,
+      "minEvidence": 1,
+      "description": "Evaluasi rasio spesifikasi terhadap harga beli aktual dan paket ritel."
+    },
+    "performance_and_gaming": {
+      "id": "performance_and_gaming",
+      "name": "Performance and gaming",
+      "nameId": "Performa & Gaming",
+      "weight": 0.15,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Evaluasi kemampuan komputasi CPU/GPU, memori, benchmark, dan stabilitas gaming."
+    },
+    "battery_and_charging": {
+      "id": "battery_and_charging",
+      "name": "Battery and charging",
+      "nameId": "Baterai & Pengisian Daya",
+      "weight": 0.15,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Evaluasi kapasitas daya baterai, efisiensi konsumsi, dan kecepatan pengisian daya."
+    },
+    "software_and_security": {
+      "id": "software_and_security",
+      "name": "Software and security support",
+      "nameId": "Software & Dukungan Keamanan",
+      "weight": 0.15,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Dukungan versi OS, komitmen panjang update, dan proteksi keamanan hardware/software."
+    },
+    "display_and_design": {
+      "id": "display_and_design",
+      "name": "Display and design",
+      "nameId": "Layar & Desain Bodi",
+      "weight": 0.10,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Kualitas panel, refresh rate, kecerahan layar, ergonomi bodi, dan estetika bezel/notch."
+    },
+    "camera": {
+      "id": "camera",
+      "name": "Camera",
+      "nameId": "Kamera Foto & Video",
+      "weight": 0.10,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Kemampuan sensor utama, ultrawide, selfie, OIS, serta kualitas perekaman video."
+    },
+    "durability_and_protection": {
+      "id": "durability_and_protection",
+      "name": "Durability and protection",
+      "nameId": "Ketahanan & Proteksi Fisik",
+      "weight": 0.15,
+      "baseScore": 3.0,
+      "minEvidence": 1,
+      "description": "Sertifikasi ketahanan air dan debu (IP rating) serta proteksi material kaca/bodi."
+    }
+  },
+  "priceTiers": [
+    { "id": "entry", "label": "Entry-Level (< Rp 2 Juta)", "max": 1999999 },
+    { "id": "mid", "label": "Mid-Range (Rp 2 - 4 Juta)", "min": 2000000, "max": 3999999 },
+    { "id": "upper_mid", "label": "Upper Mid-Range (Rp 4 - 7 Juta)", "min": 4000000, "max": 6999999 },
+    { "id": "flagship", "label": "Flagship (≥ Rp 7 Juta)", "min": 7000000 }
+  ],
+  "maxSentimentImpact": 0.3,
+  "decisionThresholds": [
+    { "min": 4.0, "max": 5.0, "label": "Sangat direkomendasikan" },
+    { "min": 3.0, "max": 3.999, "label": "Direkomendasikan dengan pertimbangan" },
+    { "min": 2.0, "max": 2.999, "label": "Cocok secara terbatas" },
+    { "min": 0.0, "max": 1.999, "label": "Tidak direkomendasikan" }
+  ]
+}

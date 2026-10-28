@@ -1,0 +1,67 @@
+[
+  {
+    "id": "os_update_commitment",
+    "criterion": "software_and_security",
+    "description": "Jaminan durasi pembaruan sistem operasi dan patch keamanan",
+    "match": { "attribute": "os_update_years" },
+    "metric": { "field": "normalized_value", "unit": "tahun" },
+    "bands": [
+      { "gte": 5, "delta": 0.8, "label": "Jaminan update sangat panjang (>= 5 tahun)", "template": "Jaminan pembaruan sistem operasi dan patch keamanan hingga {value} tahun memberikan ketenangan jangka panjang" },
+      { "gte": 3, "lt": 5, "delta": 0.4, "label": "Jaminan update standar (3-4 tahun)", "template": "Jaminan pembaruan OS {value} tahun cukup layak untuk kelasnya" },
+      { "lt": 3, "delta": -0.3, "label": "Jaminan update pendek (< 3 tahun)", "template": "Dukungan pembaruan OS relatif singkat ({value} tahun)" }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "security_hardware_presence",
+    "criterion": "software_and_security",
+    "description": "Keberadaan chip keamanan hardware terisolasi",
+    "match": { "attribute": "security_hardware" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["knox vault", "dedicated security", "secure enclave", "titan"],
+        "delta": 0.5,
+        "label": "Dilengkapi chip keamanan hardware khusus",
+        "template": "Memiliki chip keamanan hardware mandiri ({attribute_value}) setara standar perangkat premium"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "ai_features_presence",
+    "criterion": "software_and_security",
+    "description": "Ketersediaan fitur pintar / AI bawaan",
+    "match": { "topic": "software" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["circle to search", "awesome intelligence", "object eraser", "ai select"],
+        "delta": 0.3,
+        "label": "Tersedia fitur kecerdasan buatan terintegrasi",
+        "template": "Sistem operasi dilengkapi fitur AI fungsional (Circle to Search, Object Eraser)"
+      }
+    ],
+    "polarity": "positive",
+    "maxApply": 1
+  },
+  {
+    "id": "absent_flagship_features",
+    "criterion": "software_and_security",
+    "description": "Pemangkasan fitur flagship pada lini terjangkau",
+    "match": { "topic": "software" },
+    "metric": { "field": "text" },
+    "bands": [
+      {
+        "contains": ["absen di hp ini", "tidak ada bixby", "dipangkas", "nggak ada bixby"],
+        "delta": -0.2,
+        "label": "Beberapa fitur flagship dipangkas",
+        "template": "Beberapa fitur flagship lanjutan tidak disertakan pada seri ini"
+      }
+    ],
+    "polarity": "negative",
+    "maxApply": 1
+  }
+]

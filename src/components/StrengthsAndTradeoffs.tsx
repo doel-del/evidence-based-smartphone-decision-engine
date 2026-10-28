@@ -1,13 +1,14 @@
 import React from 'react';
-import { DecisionResult } from '../server/types.js';
+import { ReportOutput } from '../server/types.js';
+import { TrendingUp, TrendingDown } from 'lucide-react';
 
 interface StrengthsAndTradeoffsProps {
-  decision: DecisionResult | null;
+  report: ReportOutput | null;
   onOpenEvidence: (id: string) => void;
 }
 
-export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ decision, onOpenEvidence }) => {
-  if (!decision) return null;
+export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ report, onOpenEvidence }) => {
+  if (!report) return null;
 
   return (
     <section id="transparansi" className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 shadow-xs space-y-8">
@@ -21,19 +22,19 @@ export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ de
       </header>
 
       <div className="grid md:grid-cols-2 gap-8 md:gap-10">
-        {/* Kolom Kiri: Strengths / Positive Drivers */}
-        <div className="space-y-5">
+        {/* Left Column: Strengths / Positive Drivers */}
+        <div className="space-y-4">
           <div className="flex items-center gap-2 border-b border-emerald-100 pb-2">
-            <span className="text-lg">📈</span>
+            <TrendingUp className="w-5 h-5 text-emerald-600" />
             <h3 className="text-sm font-black text-emerald-800 uppercase tracking-wider">
               Kelebihan Utama (Pendorong Skor Naik)
             </h3>
           </div>
 
-          <div className="space-y-4">
-            {decision.strengths.map((str, idx) => (
+          <div className="space-y-3">
+            {report.strengths.map((str, idx) => (
               <div key={idx} className="flex gap-3 items-start p-3.5 rounded-2xl bg-emerald-50/50 border border-emerald-100/80">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-base leading-none">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm leading-none">
                   +
                 </span>
                 <div className="w-full space-y-1">
@@ -41,9 +42,6 @@ export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ de
                     <p className="text-sm font-bold text-gray-900 leading-snug">
                       {str.title}
                     </p>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0">
-                      {str.impactCategory}
-                    </span>
                   </div>
                   <p className="text-xs text-gray-600 font-medium leading-relaxed">
                     {str.description}
@@ -54,9 +52,9 @@ export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ de
                         key={id}
                         onClick={() => onOpenEvidence(id)}
                         className="text-[10px] font-mono font-bold text-emerald-700 hover:text-emerald-900 bg-white px-1.5 py-0.5 rounded border border-emerald-200 cursor-pointer"
-                        title="Periksa bukti"
+                        title={`Buka bukti ${id}`}
                       >
-                        [{id.split('-').pop()}]
+                        [{id}]
                       </button>
                     ))}
                   </div>
@@ -66,49 +64,39 @@ export const StrengthsAndTradeoffs: React.FC<StrengthsAndTradeoffsProps> = ({ de
           </div>
         </div>
 
-        {/* Kolom Kanan: Tradeoffs / Deductions */}
-        <div className="space-y-5">
-          <div className="flex items-center gap-2 border-b border-red-100 pb-2">
-            <span className="text-lg">📉</span>
-            <h3 className="text-sm font-black text-red-800 uppercase tracking-wider">
-              Kekurangan Nyata (Pemangkas Skor)
+        {/* Right Column: Tradeoffs / Negative Deductions */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 border-b border-amber-100 pb-2">
+            <TrendingDown className="w-5 h-5 text-amber-600" />
+            <h3 className="text-sm font-black text-amber-900 uppercase tracking-wider">
+              Kelemahan & Catatan (Pemangkas Skor)
             </h3>
           </div>
 
-          <div className="space-y-4">
-            {decision.tradeoffs.map((trd, idx) => (
-              <div key={idx} className="flex gap-3 items-start p-3.5 rounded-2xl bg-red-50/40 border border-red-100/80">
-                <span className="shrink-0 w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center font-black text-base leading-none">
-                  −
+          <div className="space-y-3">
+            {report.tradeoffs.map((tro, idx) => (
+              <div key={idx} className="flex gap-3 items-start p-3.5 rounded-2xl bg-amber-50/50 border border-amber-100/80">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm leading-none">
+                  -
                 </span>
                 <div className="w-full space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-bold text-gray-900 leading-snug">
-                      {trd.title}
+                      {tro.title}
                     </p>
-                    {trd.scoreDeduction !== undefined && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 text-red-700 shrink-0 tabular-nums font-mono">
-                        {trd.scoreDeduction}
-                      </span>
-                    )}
                   </div>
                   <p className="text-xs text-gray-600 font-medium leading-relaxed">
-                    {trd.description}
+                    {tro.description}
                   </p>
-                  {trd.mitigation && (
-                    <p className="text-[11px] text-blue-700 font-semibold bg-blue-50/60 p-2 rounded-lg mt-1 border border-blue-100">
-                      💡 Solusi / Catatan: {trd.mitigation}
-                    </p>
-                  )}
                   <div className="pt-1 flex flex-wrap gap-1">
-                    {trd.evidenceIds.map(id => (
+                    {tro.evidenceIds.map(id => (
                       <button
                         key={id}
                         onClick={() => onOpenEvidence(id)}
-                        className="text-[10px] font-mono font-bold text-red-700 hover:text-red-900 bg-white px-1.5 py-0.5 rounded border border-red-200 cursor-pointer"
-                        title="Periksa bukti"
+                        className="text-[10px] font-mono font-bold text-amber-800 hover:text-amber-950 bg-white px-1.5 py-0.5 rounded border border-amber-200 cursor-pointer"
+                        title={`Buka bukti ${id}`}
                       >
-                        [{id.split('-').pop()}]
+                        [{id}]
                       </button>
                     ))}
                   </div>

@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { DecisionResult, CriterionId } from '../server/types.js';
+import { ReportOutput, CriterionId } from '../server/types.js';
 import { ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
 
 interface CriteriaBreakdownProps {
-  decision: DecisionResult | null;
+  report: ReportOutput | null;
   onOpenEvidence: (id: string) => void;
 }
 
-export const CriteriaBreakdown: React.FC<CriteriaBreakdownProps> = ({ decision, onOpenEvidence }) => {
+export const CriteriaBreakdown: React.FC<CriteriaBreakdownProps> = ({ report, onOpenEvidence }) => {
   const [expandedCriterion, setExpandedCriterion] = useState<string | null>(null);
 
-  if (!decision) return null;
+  if (!report) return null;
 
   const toggleExpand = (id: string) => {
     setExpandedCriterion(prev => prev === id ? null : id);
@@ -24,18 +24,18 @@ export const CriteriaBreakdown: React.FC<CriteriaBreakdownProps> = ({ decision, 
             Breakdown 7 Kriteria Keputusan
           </h2>
           <p className="text-xs font-semibold text-gray-500 mt-1">
-            Bobot tetap PRD (Total 100%) dengan rubric berbasis bukti deterministik
+            Bobot tetap (Total 100%) dengan rubric berbasis bukti deterministik
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold px-3 py-1 bg-blue-50 text-blue-700 rounded-full border border-blue-200">
-            Cakupan: {decision.coveragePercent}%
+            Cakupan: {report.coveragePercent}%
           </span>
         </div>
       </header>
 
       <div className="space-y-4">
-        {Object.entries(decision.criteriaScores).map(([cid, item]) => {
+        {Object.entries(report.criteriaScores).map(([cid, item]) => {
           const isExpanded = expandedCriterion === cid;
           const percentage = item.score !== null ? (item.score / 5) * 100 : 0;
           const weightPercent = Math.round(item.weight * 100);
@@ -59,112 +59,104 @@ export const CriteriaBreakdown: React.FC<CriteriaBreakdownProps> = ({ decision, 
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 font-medium">
-                    {item.criterionName} (Rubric {item.rubricVersion})
+                    {item.isRated ? `Basis Skor: ${item.baseScore.toFixed(1)} / 5.0` : (item.unratedReason || 'Belum dinilai')}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-4 sm:gap-6 self-end sm:self-center">
-                  <div className="w-32 sm:w-40 flex flex-col gap-1 text-right">
-                    <span className="text-xl font-black text-gray-900 tabular-nums">
-                      {item.score !== null ? item.score.toFixed(1) : 'UNRATED'}
-                      <span className="text-xs text-gray-500 font-medium"> / 5.0</span>
-                    </span>
-                    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                <div className="flex items-center gap-5">
+                  <div className="text-right">
+                    <div className="flex items-baseline justify-end gap-1">
+                      <span className="text-2xl font-black text-gray-900 tabular-nums">
+                        {item.score !== null ? item.score.toFixed(1) : '-'}
+                      </span>
+                      <span className="text-xs text-gray-400 font-bold">/ 5.0</span>
+                    </div>
+                    {/* Score mini progress bar */}
+                    <div className="w-28 h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
                       <div 
-                        className={`h-full rounded-full transition-all duration-500 ${
-                          (item.score ?? 0) >= 4.0 ? 'bg-emerald-500' :
-                          (item.score ?? 0) >= 3.0 ? 'bg-blue-500' : 'bg-amber-500'
+                        className={`h-full rounded-full ${
+                          (item.score || 0) >= 4.0 ? 'bg-emerald-500' :
+                          (item.score || 0) >= 3.0 ? 'bg-blue-500' :
+                          (item.score || 0) >= 2.0 ? 'bg-amber-500' : 'bg-gray-300'
                         }`}
                         style={{ width: `${percentage}%` }}
-                      ></div>
+                      />
                     </div>
                   </div>
 
-                  <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </div>
+                  <button className="text-gray-400 hover:text-gray-600 transition-colors p-1">
+                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 
+              {/* Expanded details */}
               {isExpanded && (
-                <div className="p-5 border-t border-gray-100 bg-slate-50/60 space-y-4 text-xs">
-                  {/* Primary Findings */}
-                  <div>
-                    <h4 className="font-bold text-gray-700 uppercase tracking-wider mb-2">
-                      Temuan Utama Berdasarkan Bukti:
-                    </h4>
-                    <ul className="space-y-1.5 text-gray-700 font-medium">
-                      {item.primaryFindings.map((finding, fi) => (
-                        <li key={fi} className="flex items-start gap-2">
-                          <span className="text-blue-500 font-bold">•</span>
-                          <span>{finding}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Positive Drivers */}
+                <div className="px-5 pb-5 pt-2 bg-slate-50/80 border-t border-gray-100 space-y-4 text-xs">
+                  {/* Positive drivers */}
                   {item.positiveDrivers.length > 0 && (
-                    <div className="space-y-1.5">
-                      <h4 className="font-bold text-emerald-800 uppercase tracking-wider">
-                        Faktor Pendorong Skor Naik:
-                      </h4>
-                      {item.positiveDrivers.map((p, pi) => (
-                        <div key={pi} className="flex items-start justify-between gap-2 p-2 bg-emerald-50/70 border border-emerald-200 rounded-lg text-emerald-950 font-medium">
-                          <span>+ {p.text}</span>
-                          <span className="shrink-0 flex gap-1">
-                            {p.evidenceIds.map(id => (
-                              <button
-                                key={id}
-                                onClick={(e) => { e.stopPropagation(); onOpenEvidence(id); }}
-                                className="text-[10px] font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-300 text-emerald-700 hover:bg-emerald-100 cursor-pointer"
-                              >
-                                {id.split('-').pop()}
-                              </button>
-                            ))}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      <span className="font-extrabold text-emerald-800 uppercase tracking-wider text-[11px]">
+                        Faktor Penguat (+):
+                      </span>
+                      <ul className="space-y-1.5">
+                        {item.positiveDrivers.map((d, i) => (
+                          <li key={i} className="flex items-start justify-between gap-2 bg-white p-2.5 rounded-lg border border-emerald-100 text-gray-800">
+                            <div>
+                              <span>{d.text}</span>
+                              {d.evidenceIds.map(eid => (
+                                <button
+                                  key={eid}
+                                  onClick={(e) => { e.stopPropagation(); onOpenEvidence(eid); }}
+                                  className="ml-1 text-[10px] font-mono font-bold text-blue-600 hover:underline"
+                                >
+                                  [{eid}]
+                                </button>
+                              ))}
+                            </div>
+                            <span className="font-mono font-bold text-emerald-600 shrink-0">
+                              +{d.delta.toFixed(1)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  {/* Negative Deductions */}
+                  {/* Negative deductions */}
                   {item.negativeDeductions.length > 0 && (
-                    <div className="space-y-1.5">
-                      <h4 className="font-bold text-red-800 uppercase tracking-wider">
-                        Faktor Pengurang / Pemangkas Skor:
-                      </h4>
-                      {item.negativeDeductions.map((n, ni) => (
-                        <div key={ni} className="flex items-start justify-between gap-2 p-2 bg-red-50/70 border border-red-200 rounded-lg text-red-950 font-medium">
-                          <span>− {n.text}</span>
-                          <span className="shrink-0 flex gap-1">
-                            {n.evidenceIds.map(id => (
-                              <button
-                                key={id}
-                                onClick={(e) => { e.stopPropagation(); onOpenEvidence(id); }}
-                                className="text-[10px] font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-red-300 text-red-700 hover:bg-red-100 cursor-pointer"
-                              >
-                                {id.split('-').pop()}
-                              </button>
-                            ))}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="space-y-2">
+                      <span className="font-extrabold text-amber-800 uppercase tracking-wider text-[11px]">
+                        Faktor Pemangkas (-):
+                      </span>
+                      <ul className="space-y-1.5">
+                        {item.negativeDeductions.map((d, i) => (
+                          <li key={i} className="flex items-start justify-between gap-2 bg-white p-2.5 rounded-lg border border-amber-100 text-gray-800">
+                            <div>
+                              <span>{d.text}</span>
+                              {d.evidenceIds.map(eid => (
+                                <button
+                                  key={eid}
+                                  onClick={(e) => { e.stopPropagation(); onOpenEvidence(eid); }}
+                                  className="ml-1 text-[10px] font-mono font-bold text-blue-600 hover:underline"
+                                >
+                                  [{eid}]
+                                </button>
+                              ))}
+                            </div>
+                            <span className="font-mono font-bold text-amber-600 shrink-0">
+                              {d.delta.toFixed(1)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                   )}
 
-                  {/* Evidence IDs Reference Pill List */}
-                  <div className="pt-2 border-t border-gray-200 flex flex-wrap items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-gray-500">ID Bukti Pendukung:</span>
-                    {item.evidenceIdsUsed.map(id => (
-                      <button
-                        key={id}
-                        onClick={(e) => { e.stopPropagation(); onOpenEvidence(id); }}
-                        className="text-[11px] font-mono font-semibold px-2 py-0.5 bg-white text-blue-700 border border-gray-200 hover:border-blue-400 rounded-md transition-colors cursor-pointer"
-                      >
-                        {id}
-                      </button>
-                    ))}
+                  {/* Evidence count */}
+                  <div className="flex items-center justify-between text-gray-500 pt-2 border-t border-gray-200/60 text-[11px]">
+                    <span>Bukti Digunakan: {item.evidenceIdsUsed.length} item</span>
+                    <span className="font-mono">Versi Rubric: {item.rubricVersion}</span>
                   </div>
                 </div>
               )}

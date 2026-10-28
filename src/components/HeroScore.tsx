@@ -1,131 +1,182 @@
 import React from 'react';
-import { DecisionResult } from '../server/types.js';
-import { ShieldCheck, Star } from 'lucide-react';
+import { Award, Calendar, CheckCircle2, DollarSign, Layers, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { ReportOutput } from '../server/types.js';
 
 interface HeroScoreProps {
-  decision: DecisionResult | null;
-  loading: boolean;
+  report: ReportOutput;
   onOpenEvidence: (id: string) => void;
 }
 
-export const HeroScore: React.FC<HeroScoreProps> = ({ decision, loading, onOpenEvidence }) => {
-  const overallScoreDisplay = decision?.overallScore !== null && decision?.overallScore !== undefined 
-    ? decision.overallScore.toFixed(1) 
-    : '-';
+export const HeroScore: React.FC<HeroScoreProps> = ({ report, onOpenEvidence }) => {
+  const isPublished = report.decisionStatus === 'PUBLISHED' && report.overallScore !== null;
+
+  // Format currency
+  const formatPrice = (amount: number | null) => {
+    if (amount === null) return '-';
+    return `Rp ${amount.toLocaleString('id-ID')}`;
+  };
+
+  const getConfidenceBadgeColor = (conf: string) => {
+    const c = conf.toUpperCase();
+    if (c === 'HIGH' || c === 'TINGGI') return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    if (c === 'MEDIUM' || c === 'SEDANG') return 'bg-amber-100 text-amber-800 border-amber-200';
+    return 'bg-rose-100 text-rose-800 border-rose-200';
+  };
+
+  const getDecisionBadgeColor = (status: string) => {
+    if (status === 'PUBLISHED') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+    if (status === 'UNRESOLVED_CRITICAL_CONFLICT') return 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+    return 'bg-amber-500/10 text-amber-400 border-amber-500/30';
+  };
 
   return (
-    <section className="bg-white border-b border-gray-200 pt-10 pb-14 shadow-2xs">
-      <div className="max-w-6xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-        
-        {/* Kolom Kiri: Judul & Headline Editorial */}
-        <div className="lg:col-span-7">
-          <div className="inline-flex items-center gap-2 text-xs font-black px-3 py-1 rounded-full mb-4 tracking-wider uppercase bg-blue-50 text-blue-800 border border-blue-200">
-            <span>📱 Independent Tech Review</span>
+    <section className="bg-white border-b border-gray-200 py-10 md:py-14">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Main Info (Left 7 cols) */}
+          <div className="lg:col-span-7">
+            {/* Meta badges */}
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>Mesin Keputusan Deterministik</span>
+              </span>
+
+              {report.capturedAtRange && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                  <Calendar className="w-3.5 h-3.5 text-gray-500" />
+                  <span>
+                    Data rilis: {report.capturedAtRange.earliest}
+                    {report.capturedAtRange.earliest !== report.capturedAtRange.latest ? ` s/d ${report.capturedAtRange.latest}` : ''}
+                  </span>
+                </span>
+              )}
+            </div>
+
+            {/* Product Title */}
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-gray-900 tracking-tight leading-tight mb-4">
+              {report.productName}
+            </h1>
+
+            {/* Price Banner */}
+            {report.priceSummary && (report.priceSummary.min !== null || report.priceSummary.max !== null) && (
+              <div className="inline-flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 mb-6">
+                <DollarSign className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-xs text-gray-600 font-semibold">Rentang Harga Bukti:</span>
+                <span className="text-sm font-extrabold text-gray-900">
+                  {report.priceSummary.min === report.priceSummary.max
+                    ? formatPrice(report.priceSummary.min)
+                    : `${formatPrice(report.priceSummary.min)} - ${formatPrice(report.priceSummary.max)}`}
+                </span>
+                {report.priceSummary.evidenceIds.length > 0 && (
+                  <button
+                    onClick={() => onOpenEvidence(report.priceSummary.evidenceIds[0])}
+                    className="text-[10px] font-mono font-bold text-blue-600 hover:underline ml-1"
+                  >
+                    [{report.priceSummary.evidenceIds[0]}]
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Key Decision Reasons */}
+            <div className="space-y-3 mt-2">
+              <h3 className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">
+                Faktor Penentu Utama
+              </h3>
+              <div className="space-y-2">
+                {report.decisionReasons.slice(0, 4).map((reason) => (
+                  <div 
+                    key={reason.id} 
+                    className="flex items-start gap-2.5 text-sm text-gray-700 bg-gray-50/80 p-2.5 rounded-lg border border-gray-100"
+                  >
+                    {reason.impact === 'positive' ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <span className="font-bold text-gray-900 mr-1.5">{reason.title}:</span>
+                      <span>{reason.description}</span>
+                      {reason.evidenceIds.map(eid => (
+                        <button
+                          key={eid}
+                          onClick={() => onOpenEvidence(eid)}
+                          className="inline-block ml-1 px-1.5 py-0.5 text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100"
+                        >
+                          {eid}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4 leading-tight text-gray-900 tracking-tight">
-            Review Samsung Galaxy A26 5G: Siap Menguras THR Anda?
-          </h1>
+          {/* Decision Card (Right 5 cols) */}
+          <div className="lg:col-span-5">
+            <div className="bg-slate-950 text-white rounded-3xl p-6 md:p-8 shadow-xl border border-slate-800">
+              {/* Verdict Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800/80 mb-6">
+                <span className="text-xs font-extrabold tracking-wider text-slate-400 uppercase">
+                  Hasil Evaluasi Algoritmik
+                </span>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-lg border ${getDecisionBadgeColor(report.decisionStatus)}`}>
+                  {report.decisionStatus}
+                </span>
+              </div>
 
-          <p className="text-lg text-gray-600 mb-6 leading-relaxed font-medium">
-            Analisis lengkap dari pengujian lapangan mengenai performa gaming, kamera, One UI 7, hingga daya tahan IP67 dan jaminan update 6 tahun{' '}
-            <button
-              onClick={() => onOpenEvidence('45hfkSE5DvA-E006')}
-              className="inline-flex items-center text-blue-600 hover:text-blue-800 text-xs font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 hover:bg-blue-100 transition-colors cursor-pointer border border-blue-200"
-              title="Lihat bukti bukti 6 tahun update"
-            >
-              [cite: E006]
-            </button>.
-          </p>
+              {/* Score Display */}
+              <div className="flex items-baseline justify-between mb-6">
+                <div>
+                  <span className="text-xs text-slate-400 block font-semibold mb-1">Skor Tertimbang</span>
+                  <div className="flex items-baseline">
+                    <span className="text-5xl md:text-6xl font-black tracking-tight text-white">
+                      {isPublished ? report.overallScore?.toFixed(1) : '-'}
+                    </span>
+                    <span className="text-slate-500 text-lg font-bold ml-1.5">/ 5.0</span>
+                  </div>
+                </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
-              <span>✓ Tested (Pengujian Lapangan)</span>
-              <button
-                onClick={() => onOpenEvidence('45hfkSE5DvA-E118')}
-                className="text-emerald-700 hover:underline font-mono text-[11px]"
-                title="Buka bukti pengujian"
-              >
-                [cite: E118]
-              </button>
-            </span>
-
-            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-              🏆 Top Value Mid-Range
-            </span>
-
-            <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-              🛡️ Hardware Knox Vault
-            </span>
-          </div>
-        </div>
-
-        {/* Kolom Kanan: Score Box Eksklusif */}
-        <div className="lg:col-span-5 bg-slate-950 text-white p-7 md:p-8 rounded-3xl shadow-2xl border border-slate-800 relative overflow-hidden">
-          {/* Subtle gradient glow */}
-          <div className="absolute top-0 right-0 w-48 h-48 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="space-y-6 relative z-10">
-            {/* Editor Score Header */}
-            <div className="flex justify-between items-end border-b border-slate-800 pb-5">
-              <div>
-                <p className="text-slate-400 font-bold text-xs uppercase tracking-wider mb-1">
-                  Editor Decision Score
-                </p>
-                <div className="flex items-center gap-1 text-yellow-400">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`w-4 h-4 ${
-                        decision && decision.overallScore && star <= Math.round(decision.overallScore)
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'text-slate-700'
-                      }`}
-                    />
-                  ))}
+                <div className="text-right">
+                  <span className="text-xs text-slate-400 block font-semibold mb-1">Rekomendasi</span>
+                  <div className="text-sm font-extrabold text-emerald-400 max-w-[170px] leading-snug">
+                    {report.decisionLabel}
+                  </div>
                 </div>
               </div>
 
-              <div className="text-right">
-                {loading ? (
-                  <div className="w-16 h-10 bg-slate-800 animate-pulse rounded-lg"></div>
-                ) : (
-                  <div className="text-5xl font-black text-white tabular-nums tracking-tight">
-                    {overallScoreDisplay}
-                    <span className="text-lg text-slate-500 font-bold ml-1">/5</span>
+              {/* Trust & Coverage Metrics */}
+              <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-800/80 mb-6 text-xs">
+                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block mb-1">Tingkat Kepercayaan</span>
+                  <span className={`inline-block px-2 py-0.5 text-[11px] font-extrabold rounded-md border ${getConfidenceBadgeColor(report.confidenceLabel)}`}>
+                    {report.confidenceLabel}
+                  </span>
+                </div>
+
+                <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800">
+                  <span className="text-slate-400 block mb-1">Cakupan Data</span>
+                  <div className="font-extrabold text-white flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{report.coveragePercent}%</span>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            {/* Verdict Label */}
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-              <span className="text-slate-400 font-medium text-sm">Hasil Rekomendasi</span>
-              <span className="text-sm font-bold text-emerald-400 text-right">
-                {decision?.decisionLabel || 'Menghitung...'}
-              </span>
-            </div>
-
-            {/* Confidence & Coverage */}
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-              <div>
-                <span className="text-slate-400 font-medium text-sm block">Confidence Level</span>
-                <span className="text-[11px] text-slate-500">Cakupan Kriteria: {decision?.coveragePercent ?? 0}%</span>
+              {/* Source Provenance */}
+              <div className="flex items-center justify-between text-xs text-slate-400 pt-3 border-t border-slate-800/80">
+                <span>Sumber Terverifikasi:</span>
+                <span className="font-bold text-slate-200">
+                  {report.independentSourceCount} Kanal Reviewer Independen
+                </span>
               </div>
-              <span className="text-xs font-black bg-blue-500/20 text-blue-300 border border-blue-400/30 px-3 py-1 rounded-md flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {decision?.confidenceLabel || 'CALCULATING'}
-              </span>
-            </div>
-
-            {/* Engine Notice */}
-            <div className="pt-1 flex items-center justify-between text-[11px] text-slate-500 font-mono">
-              <span>Ruleset: {decision?.rulesetVersion || 'v1.0.0'}</span>
-              <span>100% Deterministic Engine</span>
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </section>
   );

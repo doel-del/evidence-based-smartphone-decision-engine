@@ -1,6 +1,6 @@
 {
   "name": "Evidence-Based Smartphone Decision Engine",
-  "description": "Deterministic, evidence-grounded smartphone evaluation and decision engine for Samsung Galaxy A26 5G.",
+  "description": "Deterministic, evidence-grounded smartphone evaluation and decision engine for all smartphones.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
