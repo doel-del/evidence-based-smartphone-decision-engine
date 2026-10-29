@@ -5,6 +5,8 @@ import { generateSmartphoneReport } from '../src/server/decisionEngine.js';
 import { RawEvidenceRecord, ReportOutput } from '../src/server/types.js';
 import { validateReportOutput, OutputValidationError } from '../src/server/outputValidator.js';
 import { generateStandaloneHtml } from '../src/server/exportGenerator.js';
+import { normalizeValueAndUnit, verifyRealEvidenceMatch, ingestAndNormalizeEvidence } from '../src/server/evidenceNormalizer.js';
+import { detectGenericConflicts } from '../src/server/conflictDetector.js';
 
 console.log('--- STARTING GENERIC DECISION ENGINE TEST SUITE ---');
 
@@ -128,7 +130,7 @@ it('caps confidence to LOW when evidence comes from only 1 independent source', 
 
   const report = generateSmartphoneReport(singleSource);
   assert.strictEqual(report.independentSourceCount, 1);
-  assert.ok(report.confidenceLabel === 'LOW' || report.confidenceLabel === 'Rendah');
+  assert.strictEqual(report.confidenceLabel, 'LOW');
 });
 
 // 6. Requirement: Generic Conflict Detection (Victus vs Victus+)
@@ -231,7 +233,7 @@ it('output validator throws OutputValidationError when text lacks evidenceIds or
   corruptedReport1.strengths.push({
     title: 'Kelebihan palsu tanpa bukti',
     description: 'Deskripsi buatan sendiri tanpa bukti',
-    criteriaId: 'performance_and_gaming',
+    impactCategory: 'Performa',
     evidenceIds: [] // EMPTY!
   });
 
@@ -283,6 +285,7 @@ it('rejects input with mixed product_name across evidence records', () => {
       value: 5000000,
       unit: 'IDR',
       type: 'FACT',
+      certainty: 'explicit',
       validation: { status: 'PASS' }
     },
     {
@@ -300,6 +303,7 @@ it('rejects input with mixed product_name across evidence records', () => {
       value: 6000000,
       unit: 'IDR',
       type: 'FACT',
+      certainty: 'explicit',
       validation: { status: 'PASS' }
     }
   ];
@@ -308,6 +312,276 @@ it('rejects input with mixed product_name across evidence records', () => {
     () => generateSmartphoneReport(mixedRecords),
     (err: any) => err.message.includes('lebih dari satu produk') || err.message.includes('SATU produk')
   );
+});
+
+// 11. Requirement A.1: "120 Hz" -> 120 Hz, "60 Hz" -> 60 Hz (no accidental duration parsing)
+it('normalization A.1: "120 Hz" -> 120 Hz, "60 Hz" -> 60 Hz (no Hz duration bug)', () => {
+  const r120 = normalizeValueAndUnit(120, 'Hz', 'refresh_rate', 'Layar 120 Hz halus', 'Mendukung refresh rate hingga 120 Hz.');
+  assert.strictEqual(r120.normalizedValue, 120);
+  assert.strictEqual(r120.normalizedUnit, 'Hz');
+
+  const r60 = normalizeValueAndUnit('60', 'Hz', 'refresh_rate', 'Layar 60 Hz', 'Layar standar 60 Hz.');
+  assert.strictEqual(r60.normalizedValue, 60);
+  assert.strictEqual(r60.normalizedUnit, 'Hz');
+
+  // Verify time parsing still works when time context is present
+  const rDuration = normalizeValueAndUnit(null, null, 'charging_time_full', 'Pengisian 1 jam 28 menit', 'Butuh 1 jam 28 menit hingga penuh.');
+  assert.strictEqual(rDuration.normalizedValue, 88);
+  assert.strictEqual(rDuration.normalizedUnit, 'menit');
+});
+
+// 12. Requirement A.2: AnTuTu 600,000 remains unitless, no "> 100000 = IDR" heuristic
+it('normalization A.2: AnTuTu 600,000 remains unitless and not IDR', () => {
+  const antutuRes = normalizeValueAndUnit(600000, null, 'antutu_score', 'Skor AnTuTu tembus 600000', 'Mendapatkan skor 600.000 pada AnTuTu v10.');
+  assert.strictEqual(antutuRes.normalizedValue, 600000);
+  assert.strictEqual(antutuRes.normalizedUnit, null, 'AnTuTu score must remain without unit');
+
+  // Price with IDR / juta / price attribute must have IDR
+  const priceRes = normalizeValueAndUnit(3500000, 'IDR', 'price', 'Harga 3,5 juta', 'Dijual dengan harga Rp 3.500.000.');
+  assert.strictEqual(priceRes.normalizedValue, 3500000);
+  assert.strictEqual(priceRes.normalizedUnit, 'IDR');
+});
+
+// 13. Requirement A.3: verifyRealEvidenceMatch recognizes "ribu", "juta", "setengah jam", "dual", "triple"
+it('normalization A.3: verifyRealEvidenceMatch recognizes Indonesian number words and units', () => {
+  // 600 ribu
+  const matchRibu = verifyRealEvidenceMatch({
+    evidence_id: 't-1',
+    product_name: 'Test Phone',
+    captured_at: '2025-01-01',
+    topic: 'performance',
+    type: 'MEASUREMENT',
+    claim: 'Skor AnTuTu mencapai 600 ribu',
+    source_excerpt: 'Skor AnTuTu tembus sekitar 600 ribuan poin.',
+    value: 600000,
+    certainty: 'explicit',
+    source: 'Channel 1',
+    review_id: 'r1',
+    validation: { status: 'PASS' }
+  });
+  assert.strictEqual(matchRibu.matches, true, 'Should match "600 ribuan" for 600000');
+
+  // 4 juta
+  const matchJuta = verifyRealEvidenceMatch({
+    evidence_id: 't-2',
+    product_name: 'Test Phone',
+    captured_at: '2025-01-01',
+    topic: 'price',
+    type: 'FACT',
+    claim: 'Harga 4 juta',
+    source_excerpt: 'HP ini dibanderol dengan harga 4 juta rupiah saat rilis.',
+    value: 4000000,
+    certainty: 'explicit',
+    source: 'Channel 1',
+    review_id: 'r1',
+    validation: { status: 'PASS' }
+  });
+  assert.strictEqual(matchJuta.matches, true, 'Should match "4 juta" for 4000000');
+
+  // setengah jam (30 menit)
+  const matchSetengahJam = verifyRealEvidenceMatch({
+    evidence_id: 't-3',
+    product_name: 'Test Phone',
+    captured_at: '2025-01-01',
+    topic: 'battery',
+    type: 'MEASUREMENT',
+    claim: 'Mengisi daya selama 30 menit',
+    source_excerpt: 'Dalam waktu setengah jam baterai sudah terisi 50%.',
+    value: 30,
+    certainty: 'explicit',
+    source: 'Channel 1',
+    review_id: 'r1',
+    validation: { status: 'PASS' }
+  });
+  assert.strictEqual(matchSetengahJam.matches, true, 'Should match "setengah jam" for 30');
+
+  // dual (2) & triple (3)
+  const matchDual = verifyRealEvidenceMatch({
+    evidence_id: 't-4',
+    product_name: 'Test Phone',
+    captured_at: '2025-01-01',
+    topic: 'connectivity',
+    type: 'FACT',
+    claim: 'Menggunakan 2 speaker',
+    source_excerpt: 'Perangkat ini dilengkapi dual stereo speaker yang lantang.',
+    value: 2,
+    certainty: 'explicit',
+    source: 'Channel 1',
+    review_id: 'r1',
+    validation: { status: 'PASS' }
+  });
+  assert.strictEqual(matchDual.matches, true, 'Should match "dual" for 2');
+
+  const matchTriple = verifyRealEvidenceMatch({
+    evidence_id: 't-5',
+    product_name: 'Test Phone',
+    captured_at: '2025-01-01',
+    topic: 'camera',
+    type: 'FACT',
+    claim: 'Konfigurasi 3 kamera',
+    source_excerpt: 'Terdapat triple camera di bagian belakang.',
+    value: 3,
+    certainty: 'explicit',
+    source: 'Channel 1',
+    review_id: 'r1',
+    validation: { status: 'PASS' }
+  });
+  assert.strictEqual(matchTriple.matches, true, 'Should match "triple" for 3');
+});
+
+// 14. Requirement B.4 & C.9: Multi-cardinality attributes do NOT participate in conflict detection
+it('taxonomy B.4 & SpecTable C.9: multi-cardinality attributes (box_contents, security_features) do not trigger conflicts', () => {
+  const baseFixture: RawEvidenceRecord[] = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), 'fixtures/phone_b.json'), 'utf-8')
+  );
+
+  const multiRecords: RawEvidenceRecord[] = [
+    ...baseFixture,
+    {
+      evidence_id: 'box-1',
+      product_name: 'Google Pixel 8a',
+      captured_at: '2025-02-10',
+      source: 'Source A',
+      review_id: 'rev-a',
+      topic: 'retail_price',
+      subtopic: 'box_contents',
+      attribute: 'package_contents',
+      value: 'Kabel USB-C',
+      unit: null,
+      claim: 'Dalam boks terdapat kabel USB-C',
+      source_excerpt: 'Dalam boks penjualan terdapat kabel USB-C.',
+      type: 'FACT',
+      certainty: 'explicit',
+      validation: { status: 'PASS' }
+    },
+    {
+      evidence_id: 'box-2',
+      product_name: 'Google Pixel 8a',
+      captured_at: '2025-02-11',
+      source: 'Source B',
+      review_id: 'rev-b',
+      topic: 'retail_price',
+      subtopic: 'box_contents',
+      attribute: 'package_contents',
+      value: 'SIM ejector dan buku panduan',
+      unit: null,
+      claim: 'Dalam boks terdapat SIM ejector dan buku panduan',
+      source_excerpt: 'Dalam boks terdapat SIM ejector dan buku panduan.',
+      type: 'FACT',
+      certainty: 'explicit',
+      validation: { status: 'PASS' }
+    }
+  ];
+
+  const report = generateSmartphoneReport(multiRecords);
+  const boxConflict = report.diagnostics.conflictsDetected.find(
+    c => c.canonicalAttribute === 'box_contents' || c.canonicalAttribute === 'package_contents'
+  );
+  assert.strictEqual(boxConflict, undefined, 'Multi attribute box_contents must never trigger conflict');
+
+  // Check SpecTable row for box_contents
+  let foundBoxRow = false;
+  for (const group of report.specTable) {
+    for (const row of group.rows) {
+      if (row.canonicalAttribute === 'box_contents') {
+        foundBoxRow = true;
+        assert.strictEqual(row.isMulti, true, 'box_contents row must have isMulti: true');
+        assert.ok(row.values && row.values.length >= 2, 'box_contents row must contain unique values');
+        assert.strictEqual(row.hasConflict, false, 'Multi attribute row hasConflict must be false');
+      }
+    }
+  }
+  assert.strictEqual(foundBoxRow, true, 'Should find box_contents in spec table');
+});
+
+// 15. Requirement B.6: Unmapped attributes excluded from specTable and tracked in diagnostics
+it('taxonomy B.6: unmapped attributes excluded from specTable and tracked in diagnostics', () => {
+  const baseFixture: RawEvidenceRecord[] = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), 'fixtures/phone_b.json'), 'utf-8')
+  );
+
+  const fixtureWithUnmapped: RawEvidenceRecord[] = [
+    ...baseFixture,
+    {
+      evidence_id: 'unmapped-1',
+      product_name: 'Google Pixel 8a',
+      captured_at: '2025-02-10',
+      source: 'Source A',
+      review_id: 'rev-a',
+      topic: 'custom_topic',
+      subtopic: 'custom_subtopic',
+      attribute: 'completely_unknown_custom_spec',
+      value: 'Nilai Spesifikasi Custom',
+      unit: null,
+      claim: 'Spesifikasi kustom dengan nilai Nilai Spesifikasi Custom',
+      source_excerpt: 'Spesifikasi kustom dengan nilai Nilai Spesifikasi Custom yang tidak ada di taxonomy.',
+      type: 'FACT',
+      certainty: 'explicit',
+      validation: { status: 'PASS' }
+    }
+  ];
+
+  const report = generateSmartphoneReport(fixtureWithUnmapped);
+
+  // 1. Must NOT be in specTable
+  for (const g of report.specTable) {
+    for (const r of g.rows) {
+      assert.notStrictEqual(r.canonicalAttribute, 'completely_unknown_custom_spec');
+    }
+  }
+
+  // 2. Must be tracked in diagnostics.unmappedAttributes
+  const unmapped = report.diagnostics.unmappedAttributes.find(
+    u => u.attribute === 'completely_unknown_custom_spec'
+  );
+  assert.ok(unmapped, 'Unmapped attribute must be recorded in diagnostics.unmappedAttributes');
+  assert.strictEqual(unmapped?.count, 1);
+});
+
+// 16. Requirement C.7: Backend-Frontend Contract integrity check
+it('contract C.7: backend sends all required contract fields (verdict, attribute, conflict, notes, videos)', () => {
+  const a26Data: RawEvidenceRecord[] = JSON.parse(
+    fs.readFileSync(path.resolve(process.cwd(), 'data/evidence_data_94.json'), 'utf-8')
+  );
+  const report = generateSmartphoneReport(a26Data);
+
+  // Check SpecRows
+  for (const group of report.specTable) {
+    for (const row of group.rows) {
+      assert.ok(typeof row.attribute === 'string', `SpecRow.attribute must be string, found ${row.attribute}`);
+      assert.strictEqual(row.attribute, row.canonicalAttribute, 'SpecRow.attribute must equal canonicalAttribute');
+      if (row.hasConflict) {
+        assert.ok(row.conflict !== undefined && typeof row.conflict.id === 'string', 'SpecRow.conflict must be full ConflictItem');
+      }
+    }
+  }
+
+  // Check ClaimVsReality
+  for (const cvr of report.claimVsReality) {
+    assert.ok(
+      cvr.verdict === 'EXCEEDS' || cvr.verdict === 'MATCHES' || cvr.verdict === 'BELOW' || cvr.verdict === 'CAVEAT',
+      `ClaimVsRealityItem.verdict must be valid enum, found: ${cvr.verdict}`
+    );
+    assert.ok(typeof cvr.verdictLabel === 'string' && cvr.verdictLabel.length > 0, 'verdictLabel must be non-empty string');
+  }
+
+  // Check Quotes
+  for (const q of report.quotes) {
+    assert.ok(typeof q.videoTitle === 'string' && q.videoTitle.length > 0, 'ReviewerQuoteItem.videoTitle must be string');
+    assert.ok(typeof q.youtubeTimestampUrl === 'string', 'ReviewerQuoteItem.youtubeTimestampUrl must be string');
+  }
+
+  // Check Alternatives
+  for (const alt of report.alternatives) {
+    assert.ok(typeof alt.comparisonNote === 'string' && alt.comparisonNote.length > 0, 'AlternativeItem.comparisonNote must be string');
+    assert.ok(typeof alt.reasonCategory === 'string' && alt.reasonCategory.length > 0, 'AlternativeItem.reasonCategory must be string');
+  }
+
+  // Check Diagnostics rejected & unmapped
+  assert.ok(typeof report.diagnostics.rejectedAtIngestCount === 'number');
+  assert.ok(typeof report.diagnostics.validationFailedCount === 'number');
+  assert.ok(Array.isArray(report.diagnostics.rejectedRecords));
+  assert.ok(Array.isArray(report.diagnostics.unmappedAttributes));
 });
 
 console.log(`\nALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);

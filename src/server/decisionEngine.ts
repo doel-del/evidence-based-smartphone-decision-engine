@@ -5,7 +5,8 @@ import {
   DecisionStatus, 
   NormalizedEvidence, 
   RawEvidenceRecord, 
-  ReportOutput 
+  ReportOutput,
+  DatasetReport 
 } from './types.js';
 import { ingestAndNormalizeEvidence } from './evidenceNormalizer.js';
 import { detectGenericConflicts } from './conflictDetector.js';
@@ -143,7 +144,7 @@ export function generateSmartphoneReport(
     }
   }
 
-  const diagnostics = {
+  const diagnostics: DatasetReport = {
     totalRecordsLoaded: rawRecords.length,
     totalNormalizedRecords: allNormalized.length,
     totalAcceptedRecords: eligibleEvidence.length,
@@ -153,7 +154,11 @@ export function generateSmartphoneReport(
     exclusionReasonsBreakdown: exclusionBreakdown,
     conflictsDetected: conflicts,
     rulesetVersion: '2.0.0-generic-deterministic',
-    independentReviewSources
+    independentReviewSources,
+    rejectedAtIngestCount: ingest.rejectedAtIngestCount,
+    validationFailedCount: ingest.validationFailedCount,
+    rejectedRecords: ingest.rejectedRecords,
+    unmappedAttributes: ingest.unmappedAttributes
   };
 
   const report: ReportOutput = {

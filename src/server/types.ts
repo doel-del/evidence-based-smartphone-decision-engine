@@ -176,13 +176,15 @@ export interface ConflictItem {
 export interface SpecRow {
   label: string;
   canonicalAttribute: string;
-  attribute?: string;
+  attribute: string; // Contract required: (= canonicalAttribute)
   value: string;
   sources: string[];
   evidenceIds: string[];
   hasConflict: boolean;
   conflictingClaims?: { source: string; value: string; evidenceId: string }[];
-  conflict?: ConflictItem;
+  conflict?: ConflictItem; // Contract required: full ConflictItem when conflict exists
+  isMulti?: boolean;
+  values?: string[];
 }
 
 export interface SpecTopicGroup {
@@ -199,27 +201,27 @@ export interface ClaimVsRealityItem {
   delta: string;
   status: string;
   statusBadge: string;
-  verdict?: 'EXCEEDS' | 'MATCHES' | 'BELOW' | 'CAVEAT' | string;
-  verdictLabel?: string;
+  verdict: 'EXCEEDS' | 'MATCHES' | 'BELOW' | 'CAVEAT';
+  verdictLabel: string;
   evidenceIds: string[];
 }
 
 export interface ReviewerQuoteItem {
   source: string;
-  videoTitle?: string;
+  videoTitle: string;
   quote: string;
   timestamp: string;
   youtubeUrl?: string;
-  youtubeTimestampUrl?: string;
+  youtubeTimestampUrl: string;
   evidenceIds: string[];
 }
 
 export interface AlternativeItem {
   productName: string;
   description: string;
-  comparisonNote?: string;
+  comparisonNote: string;
   categoryBadge: string;
-  reasonCategory?: string;
+  reasonCategory: string;
   evidenceIds: string[];
 }
 
@@ -256,8 +258,8 @@ export interface ReportOutput {
   coveragePercent: number;
   independentSourceCount: number;
   criteriaScores: Record<CriterionId, CriterionScoreResult>;
-  strengths: { title: string; description: string; evidenceIds: string[]; impactCategory: string }[];
-  tradeoffs: { title: string; description: string; scoreDeduction?: number; evidenceIds: string[]; mitigation?: string }[];
+  strengths: StrengthItem[];
+  tradeoffs: TradeoffItem[];
   decisionReasons: { id: string; title: string; description: string; evidenceIds: string[]; impact: 'positive' | 'negative' }[];
   quickDecision: {
     recommendedFor: { text: string; evidenceIds: string[] }[];
@@ -289,4 +291,25 @@ export interface DatasetReport {
     videoUrl?: string;
     recordCount: number;
   }[];
+  rejectedAtIngestCount: number;
+  validationFailedCount: number;
+  rejectedRecords: { recordId: string; reason: string; stage: 'ingest' | 'validation' }[];
+  unmappedAttributes: { attribute: string; count: number }[];
+}
+
+export interface TaxonomyAttributeConfig {
+  label: string;
+  topic: string;
+  type: 'number' | 'string' | 'duration' | 'price';
+  cardinality: 'single' | 'multi';
+  unit?: string;
+  tolerance?: number;
+  critical?: boolean;
+}
+
+export interface TaxonomyConfig {
+  topics: { id: string; label: string; order: number }[];
+  criticalAttributes: string[];
+  attributes: Record<string, TaxonomyAttributeConfig>;
+  aliases: Record<string, string>;
 }

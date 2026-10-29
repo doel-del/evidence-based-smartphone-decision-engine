@@ -17,7 +17,9 @@ import { getTaxonomy } from './evidenceNormalizer.js';
 
 /**
  * Generates technical specification table grouped by taxonomy topics.
- * If multiple sources report divergent values, displays both with conflict indicator.
+ * Requirement 6: Attributes not in taxonomy are NOT inserted into specTable.
+ * Requirement 9: For single cardinality with multiple values, show all values + conflict.
+ *               For multi cardinality, show list of unique values without conflict.
  */
 export function generateSpecTable(
   evidence: NormalizedEvidence[],
@@ -31,6 +33,8 @@ export function generateSpecTable(
   for (const item of eligible) {
     if (item.type !== 'FACT' && item.type !== 'MEASUREMENT') continue;
     if (!item.canonicalAttribute || item.canonicalAttribute === 'general_claim') continue;
+    // Requirement 6: Attributes not in taxonomy do NOT get inserted into specTable
+    if (!taxonomy.attributes[item.canonicalAttribute]) continue;
 
     if (!byAttr.has(item.canonicalAttribute)) {
       byAttr.set(item.canonicalAttribute, []);
@@ -50,40 +54,74 @@ export function generateSpecTable(
     const sources = Array.from(new Set(records.map(r => r.source)));
     const evidenceIds = records.map(r => r.evidence_id);
 
-    // If there is conflict, present all source claims
-    let displayValue = '';
-    let conflictingClaims: { source: string; value: string; evidenceId: string }[] | undefined = undefined;
+    if (meta.cardinality === 'multi') {
+      // Multi-cardinality attribute: display unique values, no conflict
+      const valSet = new Set<string>();
+      for (const r of records) {
+        const raw = r.attribute_value || (r.normalizedValue !== null && r.normalizedValue !== undefined ? String(r.normalizedValue) : null) || r.claim;
+        if (raw && String(raw).trim().length > 0) {
+          valSet.add(String(raw).trim());
+        }
+      }
+      const uniqueValues = Array.from(valSet);
+      const displayValue = uniqueValues.join(', ');
 
-    if (conflict && !conflict.resolved) {
-      conflictingClaims = conflict.claims.map(c => ({
-        source: c.source,
-        value: String(c.normalizedValue ?? c.rawValue),
-        evidenceId: c.evidenceId
-      }));
-      displayValue = conflictingClaims.map(c => `${c.source}: ${c.value}`).join(' | ');
+      const row: SpecRow = {
+        label,
+        canonicalAttribute: attr,
+        attribute: attr,
+        value: displayValue,
+        sources,
+        evidenceIds,
+        hasConflict: false,
+        conflict: undefined,
+        isMulti: true,
+        values: uniqueValues
+      };
+
+      if (!rowsByTopic.has(topicId)) {
+        rowsByTopic.set(topicId, []);
+      }
+      rowsByTopic.get(topicId)!.push(row);
     } else {
-      const preferred = records[0];
-      const val = preferred.normalizedValue !== null && preferred.normalizedValue !== undefined
-        ? preferred.normalizedValue
-        : preferred.attribute_value || preferred.value || preferred.claim;
-      const unit = preferred.normalizedUnit ? ` ${preferred.normalizedUnit}` : '';
-      displayValue = `${val}${unit}`;
-    }
+      // Single-cardinality attribute
+      let displayValue = '';
+      let conflictingClaims: { source: string; value: string; evidenceId: string }[] | undefined = undefined;
 
-    const row: SpecRow = {
-      label,
-      canonicalAttribute: attr,
-      value: displayValue,
-      sources,
-      evidenceIds,
-      hasConflict: Boolean(conflict && !conflict.resolved),
-      conflictingClaims
-    };
+      if (conflict && !conflict.resolved) {
+        conflictingClaims = conflict.claims.map(c => ({
+          source: c.source,
+          value: String(c.normalizedValue ?? c.rawValue),
+          evidenceId: c.evidenceId
+        }));
+        displayValue = conflictingClaims.map(c => `${c.source}: ${c.value}`).join(' | ');
+      } else {
+        const preferred = records[0];
+        const val = preferred.normalizedValue !== null && preferred.normalizedValue !== undefined
+          ? preferred.normalizedValue
+          : preferred.attribute_value || preferred.value || preferred.claim;
+        const unit = preferred.normalizedUnit ? ` ${preferred.normalizedUnit}` : '';
+        displayValue = `${val}${unit}`;
+      }
 
-    if (!rowsByTopic.has(topicId)) {
-      rowsByTopic.set(topicId, []);
+      const row: SpecRow = {
+        label,
+        canonicalAttribute: attr,
+        attribute: attr,
+        value: displayValue,
+        sources,
+        evidenceIds,
+        hasConflict: Boolean(conflict && !conflict.resolved),
+        conflictingClaims,
+        conflict: conflict && !conflict.resolved ? conflict : undefined,
+        isMulti: false
+      };
+
+      if (!rowsByTopic.has(topicId)) {
+        rowsByTopic.set(topicId, []);
+      }
+      rowsByTopic.get(topicId)!.push(row);
     }
-    rowsByTopic.get(topicId)!.push(row);
   }
 
   const result: SpecTopicGroup[] = [];
@@ -102,19 +140,23 @@ export function generateSpecTable(
 }
 
 /**
- * Generates Claim vs Reality table by pairing claimed_by_vendor with MEASUREMENT.
- * Hidden if no valid vendor claim pairs exist.
+ * Generates Claim vs Reality table by pairing claimed_by_vendor with MEASUREMENT / FACT.
+ * Requirement 8: Only pair claims and tested evidence with the EXACT same canonical attribute.
+ * Requirement 7: Sends verdict ('EXCEEDS'|'MATCHES'|'BELOW'|'CAVEAT') and verdictLabel.
  */
 export function generateClaimVsReality(evidence: NormalizedEvidence[]): ClaimVsRealityItem[] {
   const taxonomy = getTaxonomy();
   const eligible = evidence.filter(e => e.isEligibleForScoring);
 
   const vendorClaims = eligible.filter(e => e.certainty === 'claimed_by_vendor');
-  const measurements = eligible.filter(e => e.type === 'MEASUREMENT');
+  const measurements = eligible.filter(e => (e.type === 'MEASUREMENT' || e.type === 'FACT') && e.certainty !== 'claimed_by_vendor');
 
   const pairs: ClaimVsRealityItem[] = [];
 
   for (const vc of vendorClaims) {
+    if (!vc.canonicalAttribute || !taxonomy.attributes[vc.canonicalAttribute]) continue;
+
+    // Requirement 8: Match ONLY exact same canonical attribute
     const matchingMeasurement = measurements.find(m => 
       m.canonicalAttribute === vc.canonicalAttribute && m.evidence_id !== vc.evidence_id
     );
@@ -127,15 +169,46 @@ export function generateClaimVsReality(evidence: NormalizedEvidence[]): ClaimVsR
       const testVal = matchingMeasurement.normalizedValue ?? matchingMeasurement.attribute_value ?? matchingMeasurement.claim;
 
       let deltaText = 'Sesuai Spesifikasi';
-      let statusBadge = 'bg-emerald-100 text-emerald-700';
+      let statusBadge = 'bg-blue-100 text-blue-700';
+      let verdict: 'EXCEEDS' | 'MATCHES' | 'BELOW' | 'CAVEAT' = 'MATCHES';
+      let verdictLabel = 'Sesuai Spesifikasi';
 
       if (typeof claimVal === 'number' && typeof testVal === 'number') {
         const diff = testVal - claimVal;
-        if (diff > 0) {
-          deltaText = `+${diff} (Melampaui Klaim)`;
+        const tolerance = meta?.tolerance || 0;
+        const relDiff = claimVal !== 0 ? Math.abs(diff) / claimVal : Math.abs(diff);
+
+        // Lower charging time is better
+        const isLowerBetter = vc.canonicalAttribute === 'charging_time_full';
+
+        if (relDiff <= tolerance) {
+          deltaText = 'Sesuai Spesifikasi';
           statusBadge = 'bg-blue-100 text-blue-700';
-        } else if (diff < 0) {
-          deltaText = `${diff} (Di Bawah Klaim)`;
+          verdict = 'MATCHES';
+          verdictLabel = 'Sesuai Spesifikasi';
+        } else if (isLowerBetter ? diff < 0 : diff > 0) {
+          deltaText = `${diff > 0 ? '+' : ''}${diff} (Melampaui Klaim)`;
+          statusBadge = 'bg-emerald-100 text-emerald-700';
+          verdict = 'EXCEEDS';
+          verdictLabel = 'Melampaui Klaim';
+        } else {
+          deltaText = `${diff > 0 ? '+' : ''}${diff} (Di Bawah Klaim)`;
+          statusBadge = 'bg-rose-100 text-rose-700';
+          verdict = 'BELOW';
+          verdictLabel = 'Di Bawah Klaim';
+        }
+      } else {
+        const sClaim = String(claimVal).trim().toLowerCase();
+        const sTest = String(testVal).trim().toLowerCase();
+        if (sClaim === sTest) {
+          verdict = 'MATCHES';
+          verdictLabel = 'Sesuai Spesifikasi';
+          deltaText = 'Sesuai Spesifikasi';
+          statusBadge = 'bg-blue-100 text-blue-700';
+        } else {
+          verdict = 'CAVEAT';
+          verdictLabel = 'Perlu Catatan';
+          deltaText = 'Terdapat Perbedaan';
           statusBadge = 'bg-amber-100 text-amber-700';
         }
       }
@@ -146,8 +219,10 @@ export function generateClaimVsReality(evidence: NormalizedEvidence[]): ClaimVsR
         factoryClaim: `${claimVal} ${vc.normalizedUnit || ''}`.trim(),
         realTested: `${testVal} ${matchingMeasurement.normalizedUnit || ''}`.trim(),
         delta: deltaText,
-        status: deltaText.includes('Melampaui') ? 'Exceeds Claim' : deltaText.includes('Bawah') ? 'Below Claim' : 'Verified',
+        status: verdictLabel,
         statusBadge,
+        verdict,
+        verdictLabel,
         evidenceIds: [vc.evidence_id, matchingMeasurement.evidence_id]
       });
     }
@@ -158,6 +233,7 @@ export function generateClaimVsReality(evidence: NormalizedEvidence[]): ClaimVsR
 
 /**
  * Selects verbatim reviewer quotes from OPINION or RECOMMENDATION records (one per source)
+ * Requirement 7: videoTitle and youtubeTimestampUrl are required.
  */
 export function generateReviewerQuotes(evidence: NormalizedEvidence[]): ReviewerQuoteItem[] {
   const eligible = evidence.filter(e => e.isEligibleForScoring && (e.type === 'OPINION' || e.type === 'RECOMMENDATION'));
@@ -175,9 +251,11 @@ export function generateReviewerQuotes(evidence: NormalizedEvidence[]): Reviewer
   for (const [source, rec] of bySource.entries()) {
     quotes.push({
       source,
+      videoTitle: rec.video_title || `Ulasan Reviewer ${source}`,
       quote: rec.source_excerpt,
       timestamp: rec.timestamp_start || '00:00:00',
-      youtubeUrl: rec.youtubeTimestampUrl || rec.video_url,
+      youtubeUrl: rec.video_url,
+      youtubeTimestampUrl: rec.youtubeTimestampUrl || rec.video_url || '',
       evidenceIds: [rec.evidence_id]
     });
   }
@@ -257,6 +335,7 @@ export function deriveQuickDecision(
 
 /**
  * Derives competitor alternatives ONLY from COMPARISON or RECOMMENDATION records
+ * Requirement 7: comparisonNote and reasonCategory are required.
  */
 export function deriveCompetitorAlternatives(evidence: NormalizedEvidence[]): AlternativeItem[] {
   const eligible = evidence.filter(e => 
@@ -279,7 +358,9 @@ export function deriveCompetitorAlternatives(evidence: NormalizedEvidence[]): Al
     alternatives.push({
       productName: target,
       description: first.claim,
+      comparisonNote: first.claim || 'Pesaing di segmen harga dan spesifikasi serupa',
       categoryBadge: first.type === 'RECOMMENDATION' ? 'Rekomendasi Alternatif' : 'Perbandingan Komparatif',
+      reasonCategory: first.subtopic || 'Pesaing Segmen Serupa',
       evidenceIds: recs.map(r => r.evidence_id)
     });
   }

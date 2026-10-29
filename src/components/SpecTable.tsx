@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, Smartphone } from 'lucide-react';
+import { AlertCircle, Smartphone, Layers } from 'lucide-react';
 import { ReportOutput } from '../server/types.js';
 
 interface SpecTableProps {
@@ -39,40 +39,79 @@ export const SpecTable: React.FC<SpecTableProps> = ({ report, onOpenEvidence }) 
                 {group.rows.map((row) => (
                   <tr key={row.attribute} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3 px-4 font-bold text-gray-600 w-2/5 md:w-1/3 align-top">
-                      {row.label}
+                      <div className="flex items-center gap-1.5">
+                        <span>{row.label}</span>
+                        {row.isMulti && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 border border-slate-200" title="Atribut multi-nilai">
+                            <Layers className="w-2.5 h-2.5" />
+                            Multi
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-gray-900 align-top">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-semibold">{row.value}</span>
-                        {row.evidenceIds.map((eid) => (
-                          <button
-                            key={eid}
-                            onClick={() => onOpenEvidence(eid)}
-                            className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
-                            title={`Buka rincian bukti ${eid}`}
-                          >
-                            {eid}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Conflict alert if present on this attribute */}
-                      {row.conflict && (
-                        <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
-                          <div className="flex items-center gap-1.5 font-bold mb-1">
-                            <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                            <span>Perbedaan Klaim Antar Sumber:</span>
-                          </div>
-                          <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
-                            {row.conflict.claims.map((c, i) => (
-                              <li key={i}>
-                                <strong>{c.source}:</strong> {String(c.normalizedValue ?? c.rawValue ?? c.claim)}
-                              </li>
+                      {row.isMulti && row.values && row.values.length > 0 ? (
+                        /* Requirement 9: For multi-cardinality attributes, display unique values */
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {row.values.map((v, vi) => (
+                              <span 
+                                key={vi}
+                                className="inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 border border-slate-200 text-slate-800 rounded-lg"
+                              >
+                                {v}
+                              </span>
                             ))}
-                          </ul>
-                          <p className="mt-1 text-[11px] text-amber-700 italic">
-                            Catatan: {row.conflict.resolutionNote}
-                          </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {row.evidenceIds.map((eid) => (
+                              <button
+                                key={eid}
+                                onClick={() => onOpenEvidence(eid)}
+                                className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                title={`Buka rincian bukti ${eid}`}
+                              >
+                                {eid}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Requirement 9: For single-cardinality attributes, display all values + conflict if present */
+                        <div>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-semibold">{row.value}</span>
+                            {row.evidenceIds.map((eid) => (
+                              <button
+                                key={eid}
+                                onClick={() => onOpenEvidence(eid)}
+                                className="inline-block px-1.5 py-0.5 text-[10px] font-mono font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                                title={`Buka rincian bukti ${eid}`}
+                              >
+                                {eid}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Conflict alert for single-cardinality divergence */}
+                          {row.hasConflict && row.conflict && (
+                            <div className="mt-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900">
+                              <div className="flex items-center gap-1.5 font-bold mb-1">
+                                <AlertCircle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>Perbedaan Klaim Antar Sumber (Konflik Nilai):</span>
+                              </div>
+                              <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+                                {row.conflict.claims.map((c, i) => (
+                                  <li key={i}>
+                                    <strong>{c.source}:</strong> {String(c.normalizedValue ?? c.rawValue ?? c.claim)}
+                                  </li>
+                                ))}
+                              </ul>
+                              <p className="mt-1 text-[11px] text-amber-700 italic">
+                                Catatan: {row.conflict.resolutionNote}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

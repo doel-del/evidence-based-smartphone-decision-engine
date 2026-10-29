@@ -1,6 +1,6 @@
 import React from 'react';
 import { ReportOutput } from '../server/types.js';
-import { Activity, AlertTriangle, CheckCircle2, Database, ShieldCheck, X } from 'lucide-react';
+import { Activity, AlertTriangle, CheckCircle2, Database, ShieldCheck, X, FileQuestion, Ban } from 'lucide-react';
 
 interface DiagnosticsViewProps {
   isOpen: boolean;
@@ -31,7 +31,7 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ isOpen, report
                 Diagnostik Dataset & Audit Pipeline: {report.productName}
               </h2>
               <p className="text-xs text-slate-400">
-                Audit integritas data mentah, normalisasi, aturan validasi, dan konflik sumber.
+                Audit integritas data mentah, normalisasi, aturan validasi, penolakan, dan konflik sumber.
               </p>
             </div>
           </div>
@@ -45,38 +45,117 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ isOpen, report
 
         {/* Content */}
         <div className="p-6 md:p-8 overflow-y-auto space-y-8 text-slate-800">
-          {/* Summary Metrics */}
+          {/* Summary Metrics with separated Ingest Rejects vs Validation Fails (Requirement 3) */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Rekor Dimuat</span>
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">Total Rekor Dimuat</span>
               <span className="text-2xl font-black text-slate-900 mt-1 block tabular-nums">{diag.totalRecordsLoaded}</span>
               <span className="text-[11px] text-slate-500 font-medium">Rekaman input</span>
             </div>
 
             <div className="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200">
-              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Memenuhi Syarat (Eligible)</span>
+              <span className="text-[11px] font-bold text-emerald-600 uppercase tracking-wider block">Memenuhi Syarat</span>
               <span className="text-2xl font-black text-emerald-800 mt-1 block tabular-nums">{diag.totalAcceptedRecords}</span>
-              <span className="text-[11px] text-emerald-700 font-medium">Masuk perhitungan scoring</span>
+              <span className="text-[11px] text-emerald-700 font-medium">Masuk scoring</span>
+            </div>
+
+            <div className="p-4 bg-rose-50/60 rounded-2xl border border-rose-200">
+              <span className="text-[11px] font-bold text-rose-600 uppercase tracking-wider block">Ditolak Saat Ingest</span>
+              <span className="text-2xl font-black text-rose-800 mt-1 block tabular-nums">{diag.rejectedAtIngestCount}</span>
+              <span className="text-[11px] text-rose-700 font-medium">Integritas / duplikat</span>
             </div>
 
             <div className="p-4 bg-amber-50/60 rounded-2xl border border-amber-200">
-              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Dieksklusi / Ditolak</span>
-              <span className="text-2xl font-black text-amber-800 mt-1 block tabular-nums">{diag.totalExcludedRecords}</span>
-              <span className="text-[11px] text-amber-700 font-medium">Diisolasi dari kalkulasi</span>
+              <span className="text-[11px] font-bold text-amber-600 uppercase tracking-wider block">Gagal Validasi</span>
+              <span className="text-2xl font-black text-amber-800 mt-1 block tabular-nums">{diag.validationFailedCount}</span>
+              <span className="text-[11px] text-amber-700 font-medium">Status validasi non-pass</span>
             </div>
+          </div>
 
-            <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-200">
-              <span className="text-[11px] font-bold text-blue-600 uppercase tracking-wider block">Kanal Independen</span>
-              <span className="text-2xl font-black text-blue-900 mt-1 block tabular-nums">{diag.independentReviewSources.length}</span>
-              <span className="text-[11px] text-blue-700 font-medium">Kanal reviewer valid</span>
-            </div>
+          {/* Rejected Records Details Table (Requirement 3) */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <Ban className="w-4 h-4 text-rose-600" />
+              Daftar Rekor Ditolak / Gagal ({diag.rejectedRecords?.length || 0})
+            </h3>
+            {(!diag.rejectedRecords || diag.rejectedRecords.length === 0) ? (
+              <p className="text-xs text-slate-500 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                Tidak ada rekor yang ditolak pada dataset ini.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 max-h-60 overflow-y-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-4 font-semibold">Tahap</th>
+                      <th className="py-2.5 px-4 font-semibold">ID Rekor</th>
+                      <th className="py-2.5 px-4 font-semibold">Alasan Penolakan</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {diag.rejectedRecords.map((r, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 whitespace-nowrap">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                            r.stage === 'ingest' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'
+                          }`}>
+                            {r.stage === 'ingest' ? 'Saat Ingest' : 'Gagal Validasi'}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 font-mono font-bold text-slate-800 whitespace-nowrap">
+                          {r.recordId}
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-600">
+                          {r.reason}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Unmapped Attributes Table (Requirement 6) */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
+              <FileQuestion className="w-4 h-4 text-indigo-600" />
+              Atribut Tak Terpetakan di Taxonomy ({diag.unmappedAttributes?.length || 0})
+            </h3>
+            <p className="text-xs text-slate-500">
+              Atribut berikut tidak terdaftar di taxonomy.json sehingga tidak dimasukkan ke tabel spesifikasi dan tidak memicu konflik. Daftar ini disediakan agar user dapat memperbaikinya pada aplikasi ekstraksi.
+            </p>
+            {(!diag.unmappedAttributes || diag.unmappedAttributes.length === 0) ? (
+              <p className="text-xs text-emerald-700 bg-emerald-50 p-4 rounded-xl border border-emerald-200">
+                Semua atribut dalam dataset berhasil dipetakan ke taxonomy.
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-slate-200 max-h-52 overflow-y-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 text-slate-500 uppercase tracking-wider border-b border-slate-200 sticky top-0">
+                    <tr>
+                      <th className="py-2.5 px-4 font-semibold">Nama Atribut Tak Terpetakan</th>
+                      <th className="py-2.5 px-4 font-semibold text-right">Jumlah Rekor Bukti</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {diag.unmappedAttributes.map((u, idx) => (
+                      <tr key={idx} className="hover:bg-slate-50/50">
+                        <td className="py-2.5 px-4 font-mono font-bold text-indigo-900">{u.attribute}</td>
+                        <td className="py-2.5 px-4 text-right tabular-nums text-slate-700 font-bold">{u.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Sources breakdown */}
           <div className="space-y-3">
             <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
               <Database className="w-4 h-4 text-blue-600" />
-              Kanal Reviewer Independen
+              Kanal Reviewer Independen ({diag.independentReviewSources.length})
             </h3>
             <div className="overflow-x-auto rounded-2xl border border-slate-200">
               <table className="w-full text-xs text-left">
@@ -101,26 +180,6 @@ export const DiagnosticsView: React.FC<DiagnosticsViewProps> = ({ isOpen, report
               </table>
             </div>
           </div>
-
-          {/* Exclusion Reasons */}
-          {Object.keys(diag.exclusionReasonsBreakdown).length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-amber-600" />
-                Alasan Eksklusi Rekor Bukti
-              </h3>
-              <div className="grid sm:grid-cols-2 gap-3">
-                {Object.entries(diag.exclusionReasonsBreakdown).map(([reason, count], idx) => (
-                  <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                    <span className="text-slate-700 font-medium">{reason}</span>
-                    <span className="font-bold text-slate-900 px-2 py-0.5 bg-white rounded border border-slate-200 tabular-nums">
-                      {count} rekor
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Conflicts Detected */}
           <div className="space-y-3">

@@ -10,6 +10,12 @@ export function detectGenericConflicts(evidence: NormalizedEvidence[]): Conflict
   const byAttr = new Map<string, NormalizedEvidence[]>();
   for (const item of eligible) {
     if (!item.canonicalAttribute || item.canonicalAttribute === 'general_claim') continue;
+    // Requirement 6: Attributes not in taxonomy do NOT participate in conflict detection
+    const attrMeta = taxonomy.attributes[item.canonicalAttribute];
+    if (!attrMeta) continue;
+    // Requirement 4: Multi-cardinality attributes do NOT participate in conflict detection
+    if (attrMeta.cardinality === 'multi') continue;
+
     if (!byAttr.has(item.canonicalAttribute)) {
       byAttr.set(item.canonicalAttribute, []);
     }
@@ -35,19 +41,17 @@ export function detectGenericConflicts(evidence: NormalizedEvidence[]): Conflict
     // Compare values across sources
     let hasDivergence = false;
     let numericDiffMax = 0;
-    let baseNumeric: number | null = null;
 
     const values = sourceRecords.map(r => {
       const v = r.normalizedValue !== null && r.normalizedValue !== undefined ? r.normalizedValue : r.attribute_value || r.claim;
       return typeof v === 'string' ? v.trim().toLowerCase() : v;
     });
 
-    // Check string equivalence
+    // Check equivalence
     const firstVal = values[0];
     for (let i = 1; i < values.length; i++) {
       const currentVal = values[i];
       if (typeof firstVal === 'number' && typeof currentVal === 'number') {
-        baseNumeric = firstVal;
         const diff = Math.abs(firstVal - currentVal) / Math.max(firstVal, currentVal);
         if (diff > numericDiffMax) numericDiffMax = diff;
         if (diff > tolerance) {
